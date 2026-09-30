@@ -61,15 +61,18 @@ if not SECRET_KEY:
     SECRET_KEY = secrets.token_urlsafe(64)
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "ALLOWED_HOSTS")
+railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+if railway_domain and railway_domain not in ALLOWED_HOSTS:
+    # Keep Railway's assigned domain valid even when a service variable has
+    # only local or custom hosts (for example, values copied from .env.example).
+    ALLOWED_HOSTS.append(railway_domain)
+
 if not ALLOWED_HOSTS:
-    railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
-    if railway_domain:
-        ALLOWED_HOSTS = [railway_domain]
-    elif DEBUG:
+    if DEBUG:
         ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
     else:
         raise ImproperlyConfigured(
-            "Set DJANGO_ALLOWED_HOSTS to the production hostname(s), comma separated."
+            "Set DJANGO_ALLOWED_HOSTS or configure the Railway public domain."
         )
 if not DEBUG and "*" in ALLOWED_HOSTS:
     raise ImproperlyConfigured("Do not use '*' in DJANGO_ALLOWED_HOSTS in production.")
