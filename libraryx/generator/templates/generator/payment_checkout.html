@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paiement du flyer — IAI Cameroun</title>
+  {% load static %}
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+  <link rel="stylesheet" href="{% static 'generator/css/payment.css' %}" />
+</head>
+<body>
+  <div class="bg-gradient"></div>
+  <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+  <main class="payment-page">
+    <a class="payment-back" href="{% url 'generator:home' %}">← Retour au générateur</a>
+    <section class="payment-card" aria-labelledby="payment-title">
+      <div class="payment-mark" aria-hidden="true">🎓</div>
+      <p class="payment-eyebrow">Générateur de Flyer · IAI Cameroun</p>
+      <h1 id="payment-title">Télécharger votre flyer</h1>
+      <p class="payment-description">Votre flyer est prêt. Réglez les frais de téléchargement pour le recevoir en PNG haute qualité.</p>
+
+      <div class="payment-total" aria-label="Montant total : {{ amount }} FCFA">
+        <span>Montant à payer</span>
+        <strong>{{ amount }} <small>FCFA</small></strong>
+      </div>
+
+      {% if error_message %}<div class="payment-error" role="alert">{{ error_message }}</div>{% endif %}
+
+      {% if order.status == 'paid' %}
+        <div class="payment-success" id="paid-panel">
+          <span class="payment-state-icon" aria-hidden="true">✓</span>
+          <h2>Paiement confirmé</h2>
+          <p>Votre flyer est prêt à être téléchargé.</p>
+          <a class="payment-submit" href="{% url 'generator:payment_download' order.pk %}">Télécharger mon flyer PNG</a>
+        </div>
+      {% else %}
+        <div id="payment-waiting" class="payment-waiting" {% if order.status != 'initiating' and order.status != 'pending' %}hidden{% endif %}>
+          <span class="payment-spinner" aria-hidden="true"></span>
+          <h2>Demande de paiement envoyée</h2>
+          <p>Validez la demande sur votre téléphone. Cette page vérifiera automatiquement le paiement. DigiPay traite le numéro fourni.</p>
+          <p class="waiting-amount">Montant demandé : <strong>{{ amount }} FCFA</strong></p>
+        </div>
+
+        <form id="payment-form" method="post" action="{% url 'generator:payment_checkout' order.pk %}" {% if order.status == 'initiating' or order.status == 'pending' %}hidden{% endif %}>
+          {% csrf_token %}
+          <fieldset class="provider-fieldset">
+            <legend>Choisissez votre portefeuille Mobile Money</legend>
+            <div class="provider-options">
+              <label class="provider-choice provider-orange">
+                <input type="radio" name="payment_method" value="orange" required {% if selected_method == 'orange' or order.payment_method == 'orange' %}checked{% endif %} />
+                <span class="provider-icon">O</span>
+                <span><strong>Orange Money</strong><small>Paiement par Orange</small></span>
+              </label>
+              <label class="provider-choice provider-mtn">
+                <input type="radio" name="payment_method" value="mtn" required {% if selected_method == 'mtn' or order.payment_method == 'mtn' %}checked{% endif %} />
+                <span class="provider-icon">M</span>
+                <span><strong>MTN Mobile Money</strong><small>Paiement par MTN</small></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <label class="checkout-label" for="mobile-number">Numéro Mobile Money</label>
+          <div class="phone-input-wrap">
+            <span class="country-prefix" aria-label="Indicatif du Cameroun">+237</span>
+            <input id="mobile-number" name="mobile_number" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="6 78 80 88 31" pattern="[0-9 +().-]{8,20}" required aria-describedby="mobile-help" />
+          </div>
+          <small class="checkout-help" id="mobile-help">Entrez le numéro du portefeuille choisi. L’indicatif +237 est déjà ajouté.</small>
+
+          <label class="checkout-label email-label" for="customer-email">Adresse e-mail <span>(facultatif, pour le reçu)</span></label>
+          <input class="checkout-input" id="customer-email" name="customer_email" type="email" autocomplete="email" maxlength="254" placeholder="vous@exemple.com" />
+
+          <button class="payment-submit" id="pay-button" type="submit">Recevoir la demande de paiement</button>
+          <p class="payment-footnote">Vous ne serez facturé que de <strong>{{ amount }} FCFA</strong>.</p>
+        </form>
+      {% endif %}
+    </section>
+    <p class="payment-security">Paiement traité de façon sécurisée par DigiPay.</p>
+  </main>
+  {% if order.status == 'initiating' or order.status == 'pending' %}
+    <script src="{% static 'generator/js/payment.js' %}?v=1" data-status-url="{% url 'generator:payment_status' order.pk %}"></script>
+  {% endif %}
+</body>
+</html>

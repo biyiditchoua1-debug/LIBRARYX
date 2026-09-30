@@ -1,0 +1,9 @@
+Django==6.1
+gunicorn==26.2.0
+whitenoise==6.12.0
+Pillow==12.3.0
+psd-tools==1.18.0
+reportlab==5.0.1
+sqlparse==0.6.0
+asgiref==3.12.1
+digipay-python==1.0.0

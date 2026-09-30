@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
 
   {% load static %}
-  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=7" />
 </head>
 <body>
 
@@ -59,12 +59,12 @@
             <span class="step" data-step="3">3</span>
           </div>
           <h2 class="panel-title">Informations du Candidat</h2>
-          <p class="panel-desc">Remplissez les champs ci-dessous. Les champs vides afficheront <em>--</em> sur le flyer.</p>
+          <p class="panel-desc">Remplissez les champs ci-dessous. La date et l’heure de soutenance sont facultatives.</p>
         </div>
 
         <form id="flyer-form" enctype="multipart/form-data" novalidate
               data-preview-url="{% url 'generator:preview' %}"
-              data-download-url="{% url 'generator:download' %}"
+              data-payment-start-url="{% url 'generator:payment_start' %}"
               data-search-url="{% url 'generator:student_search' %}"
               data-check-duplicate-url="{% url 'generator:student_check_duplicate' %}">
           {% csrf_token %}
@@ -116,7 +116,24 @@
             <div class="form-group">
               <label class="form-label" for="classe">🏫 Classe</label>
               <input class="form-input" type="text" id="classe" name="classe"
-                placeholder="ex: SR 3 - A" required />
+                placeholder="ex: L1A, BA2B" maxlength="100" required />
+            </div>
+          </div>
+
+          <!-- Date & time printed in the PSD schedule badges -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="soutenance_date">📅 Jour / mois</label>
+              <input class="form-input" type="text" id="soutenance_date" name="soutenance_date"
+                placeholder="ex: 09/05" pattern="[0-9]{1,2}/[0-9]{1,2}"
+                maxlength="5" aria-describedby="soutenance-date-hint" />
+              <small class="form-hint" id="soutenance-date-hint">Format jour/mois, par exemple 09/05.</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="soutenance_time">🕒 Heure</label>
+              <input class="form-input" type="time" id="soutenance_time" name="soutenance_time"
+                min="00:00" max="23:59" step="60" aria-describedby="soutenance-time-hint" />
+              <small class="form-hint" id="soutenance-time-hint">Format 24 h, par exemple 11:30.</small>
             </div>
           </div>
 
@@ -134,24 +151,8 @@
               <label class="form-label" for="niveau">🎓 Niveau</label>
               <select class="form-input" id="niveau" name="niveau">
                 <option value="N2" selected>Niveau 2 (N2)</option>
+                <option value="N3">Niveau 3 (N3)</option>
               </select>
-            </div>
-          </div>
-
-          <!-- Accessoires -->
-          <div class="form-group">
-            <label class="form-label">🎓 Accessoires requis</label>
-            <div class="checkbox-row">
-              <label class="checkbox-container">
-                <input type="checkbox" id="toge" name="toge" value="true" />
-                <span class="checkbox-custom"></span>
-                <span class="checkbox-label">Toge</span>
-              </label>
-              <label class="checkbox-container">
-                <input type="checkbox" id="echarpe" name="echarpe" value="true" />
-                <span class="checkbox-custom"></span>
-                <span class="checkbox-label">Écharpe</span>
-              </label>
             </div>
           </div>
 
@@ -185,7 +186,7 @@
             </button>
             <button type="button" id="download-btn" class="btn btn-download" disabled>
               <span class="btn-icon">⬇</span>
-              <span>Télécharger PNG</span>
+              <span>Télécharger sans filigrane · 100 FCFA</span>
             </button>
           </div>
 
@@ -208,7 +209,7 @@
           <div class="template-chips-grid">
             <button type="button" class="template-chip active" data-template="auto">
               <span class="chip-code">✨ Auto</span>
-              <span class="chip-label">Niveau 2</span>
+              <span class="chip-label" id="auto-template-label">Niveau 2</span>
             </button>
             <button type="button" class="template-chip" data-template="SR-N2">
               <span class="chip-code">SR N2</span>
@@ -221,6 +222,18 @@
             <button type="button" class="template-chip" data-template="SE-N2">
               <span class="chip-code">SE N2</span>
               <span class="chip-label">Software L2</span>
+            </button>
+            <button type="button" class="template-chip" data-template="SR-N3">
+              <span class="chip-code">SR N3</span>
+              <span class="chip-label">Réseaux L3</span>
+            </button>
+            <button type="button" class="template-chip" data-template="GL-N3">
+              <span class="chip-code">GL N3</span>
+              <span class="chip-label">Logiciel L3</span>
+            </button>
+            <button type="button" class="template-chip" data-template="SE-N3">
+              <span class="chip-code">SE N3</span>
+              <span class="chip-label">Software L3</span>
             </button>
           </div>
         </div>
@@ -241,8 +254,8 @@
 
           <!-- Image preview -->
           <div class="preview-image-wrapper" id="preview-image-wrapper" style="display:none;">
-            <img id="preview-image" src="" alt="Aperçu du flyer" />
-            <div class="preview-stamp">Aperçu</div>
+            <img id="preview-image" src="" alt="Aperçu du flyer" draggable="false" />
+            <div class="preview-stamp">Aperçu · Non valable</div>
           </div>
 
           <!-- Error state -->
@@ -256,7 +269,7 @@
         <div class="preview-footer" id="preview-footer" style="display:none;">
           <span class="preview-info">📐 Format A4 · 150 DPI</span>
           <button type="button" id="download-btn-2" class="btn btn-download btn-sm">
-            <span class="btn-icon">⬇</span> Télécharger PNG
+            <span class="btn-icon">⬇</span> Télécharger sans filigrane · 100 FCFA
           </button>
         </div>
       </section>
@@ -264,19 +277,6 @@
     </main><!-- /.main-layout -->
   </div><!-- /.page-wrapper -->
 
-  <!-- Hidden download form (PDF/PNG) -->
-  <form id="download-form" method="POST" action="{% url 'generator:download' %}" enctype="multipart/form-data" style="display:none;">
-    {% csrf_token %}
-    <input type="hidden" name="full_name" id="dl-full_name" />
-    <input type="hidden" name="theme" id="dl-theme" />
-    <input type="hidden" name="academic_supervisor" id="dl-academic_supervisor" />
-    <input type="hidden" name="professional_supervisor" id="dl-professional_supervisor" />
-    <input type="hidden" name="template_choice" id="dl-template_choice" />
-  </form>
-
-
-
-
-  <script src="{% static 'generator/js/app.js' %}?v=3"></script>
+  <script src="{% static 'generator/js/app.js' %}?v=8"></script>
 </body>
 </html>

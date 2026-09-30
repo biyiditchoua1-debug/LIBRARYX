@@ -5,7 +5,9 @@ for native vector PDF generation (enabling full text search on all devices).
 """
 
 import io
+import datetime
 from pathlib import Path
+import re
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from reportlab.pdfgen import canvas
@@ -74,6 +76,16 @@ PROF_FONT   = "Poppins-BoldItalic.ttf"
 PROF_SIZE   = 23
 PROF_COLOR  = (255, 255, 255, 255)
 PROF_ALIGN  = "left"
+
+DATE_DAY_BBOX      = (209, 1207, 304, 1283)
+DATE_MONTH_BBOX    = (309, 1217, 355, 1273)
+TIME_HOUR_BBOX     = (522, 1203, 615, 1279)
+TIME_SUFFIX_Y      = (1218, 1264)
+TIME_CONTENT_RIGHT = 672
+TIME_TEXT_GAP      = 10
+CLASS_VALUE_BBOX   = (838, 1208, 960, 1281)
+CARD_VALUE_SIZE    = 75
+CARD_SUFFIX_SIZE   = 24
 
 
 # ── Font helpers ───────────────────────────────────────────────────────────────
@@ -181,6 +193,39 @@ def _draw_centered(draw, text, font_file, start_size, color, bbox,
         _draw_tracked_text(draw, x, y, line, font, color, tracking_px)
 
 
+def _draw_badge_value(draw, text, font_file, start_size, color, bbox,
+                      align="center", tracking_px=0):
+    """Fit a single badge value by its actual glyph bounds and draw vertically centered."""
+    if not text:
+        return 0
+
+    left, top, right, bottom = bbox
+    box_w, box_h = right - left, bottom - top
+    min_size = 8
+    for pt in range(start_size, min_size - 1, -1):
+        font = _load_font(font_file, pt)
+        glyph_bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = _tracked_text_width(draw, text, font, tracking_px)
+        text_h = glyph_bbox[3] - glyph_bbox[1]
+        if text_w <= box_w and text_h <= box_h:
+            break
+    else:
+        font = _load_font(font_file, min_size)
+        glyph_bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = _tracked_text_width(draw, text, font, tracking_px)
+        text_h = glyph_bbox[3] - glyph_bbox[1]
+
+    if align == "center":
+        x = left + (box_w - text_w) // 2
+    elif align == "right":
+        x = right - text_w
+    else:
+        x = left
+    y = top + (box_h - text_h) // 2 - glyph_bbox[1]
+    _draw_tracked_text(draw, x, y, text, font, color, tracking_px)
+    return text_w
+
+
 # ── Photo with rounded corners ─────────────────────────────────────────────────
 
 def _rounded_mask(size: tuple, radius: int) -> Image.Image:
@@ -248,37 +293,69 @@ def format_supervisor_name(name: str) -> str:
         return name_str.upper()
 
 
+def split_day_month(value: str) -> tuple[str, str]:
+    """Return a large day and small '/month' string for the PSD date badge."""
+    value = (value or '').strip()
+    if not value:
+        return '', ''
+
+    match = re.fullmatch(r'(\d{1,2})\s*/\s*(\d{1,2})', value)
+    if not match:
+        raise ValueError('La date doit être au format jour/mois, par exemple 9/5.')
+
+    day_text, month_text = match.groups()
+    try:
+        datetime.date(2000, int(month_text), int(day_text))
+    except ValueError as exc:
+        raise ValueError('La date saisie est invalide.') from exc
+    return day_text.zfill(2), f'/{month_text.zfill(2)}'
+
+
+def split_time(value: str) -> tuple[str, str]:
+    """Return a large hour and small 'Hminutes' string for the PSD time badge."""
+    value = (value or '').strip()
+    if not value:
+        return '', ''
+
+    match = re.fullmatch(r'(\d{1,2})\s*[:hH]\s*(\d{2})', value)
+    if not match:
+        raise ValueError('L’heure doit être au format 8:30 ou 11H30.')
+
+    hour_text, minute_text = match.groups()
+    hour, minute = int(hour_text), int(minute_text)
+    if hour > 23 or minute > 59:
+        raise ValueError('L’heure saisie est invalide.')
+    return f'{hour:02d}', f'H{minute:02d}'
+
+
 def generate_flyer_image(form_data: dict, photo_file=None, render_text=True) -> Image.Image:
     """
     Compose the flyer onto the PNG template using PSD-exact coordinates.
     Returns a 1080 × 1516 RGBA PIL Image.
     If render_text=False, skips drawing text onto bitmap canvas (used for PDF vector rendering).
     """
-    filiere = form_data.get('filiere', 'SR').upper()
-    niveau = 'N2'  # Restricted to Level 2 (N2) templates only
-    template_choice = form_data.get('template_choice', '').strip().upper()
-    
-    EXPLICIT_TEMPLATE_MAP = {
-        'GL-N2': 'GL-N2.png',
-        'GL-N3': 'GL-N2.png',
-        'SE-N2': 'SE - N2.png',
-        'SE-N3': 'SE - N2.png',
-        'SR-N2': 'SR - N2.png',
-        'SR-N3': 'SR - N2.png',
-        'GL': 'GL-N2.png',
-        'SE': 'SE - N2.png',
-        'SR': 'SR - N2.png',
+    filiere = str(form_data.get('filiere', 'SR')).strip().upper()
+    niveau = str(form_data.get('niveau', 'N2')).strip().upper()
+    if filiere not in {'GL', 'SE', 'SR'}:
+        filiere = 'SR'
+    if niveau not in {'N2', 'N3'}:
+        niveau = 'N2'
+
+    template_choice = str(form_data.get('template_choice', '')).strip().upper()
+    if template_choice in {'GL-N2', 'GL-N3', 'SE-N2', 'SE-N3', 'SR-N2', 'SR-N3'}:
+        filiere, niveau = template_choice.split('-', 1)
+    elif template_choice in {'GL', 'SE', 'SR'}:
+        filiere = template_choice
+
+    template_files = {
+        ('GL', 'N2'): 'GL-N2.png',
+        ('GL', 'N3'): 'GL-N3.png',
+        ('SE', 'N2'): 'SE - N2.png',
+        ('SE', 'N3'): 'SE - N3.png',
+        ('SR', 'N2'): 'SR - N2.png',
+        ('SR', 'N3'): 'SR - N3.png',
     }
-    
-    if template_choice in EXPLICIT_TEMPLATE_MAP:
-        template_filename = EXPLICIT_TEMPLATE_MAP[template_choice]
-    else:
-        if filiere == 'GL':
-            template_filename = 'GL-N2.png'
-        elif filiere == 'SE':
-            template_filename = 'SE - N2.png'
-        else:
-            template_filename = 'SR - N2.png'
+    template_filename = template_files[(filiere, niveau)]
 
     template_path = ASSETS_DIR / 'templates' / template_filename
     img = Image.open(template_path).convert("RGBA")
@@ -316,16 +393,72 @@ def generate_flyer_image(form_data: dict, photo_file=None, render_text=True) -> 
     _draw_centered(draw, display_prof, PROF_FONT, PROF_SIZE,
                    PROF_COLOR, PROF_BBOX, align=PROF_ALIGN)
 
+    # PSD date, time and class badges. Values use the same Poppins ExtraBold
+    # face as the candidate name; the slash/month and H/minutes stay smaller.
+    date_day, date_month = split_day_month(form_data.get('soutenance_date', ''))
+    if date_day:
+        _draw_badge_value(draw, date_day, NAME_FONT, CARD_VALUE_SIZE,
+                          NAME_COLOR, DATE_DAY_BBOX, align='right',
+                          tracking_px=NAME_TRACK)
+        _draw_badge_value(draw, date_month, NAME_FONT, CARD_SUFFIX_SIZE,
+                          NAME_COLOR, DATE_MONTH_BBOX, tracking_px=NAME_TRACK)
+
+    time_hour, time_suffix = split_time(form_data.get('soutenance_time', ''))
+    if time_hour:
+        time_hour_width = _draw_badge_value(
+            draw, time_hour, NAME_FONT, CARD_VALUE_SIZE, NAME_COLOR,
+            TIME_HOUR_BBOX, align='left', tracking_px=NAME_TRACK,
+        )
+        suffix_left = TIME_HOUR_BBOX[0] + time_hour_width + TIME_TEXT_GAP
+        time_suffix_bbox = (
+            suffix_left, TIME_SUFFIX_Y[0], TIME_CONTENT_RIGHT, TIME_SUFFIX_Y[1]
+        )
+        _draw_badge_value(draw, time_suffix, NAME_FONT, CARD_SUFFIX_SIZE,
+                          NAME_COLOR, time_suffix_bbox, align='left',
+                          tracking_px=NAME_TRACK)
+
+    display_class = (form_data.get('classe') or '').strip().upper()
+    if display_class:
+        _draw_badge_value(draw, display_class, NAME_FONT, CARD_VALUE_SIZE,
+                          NAME_COLOR, CLASS_VALUE_BBOX, align='left',
+                          tracking_px=NAME_TRACK)
+
     return img
 
 
 def generate_flyer_preview_bytes(form_data: dict, photo_file=None) -> bytes:
-    """Return JPEG bytes at half-size for fast live preview."""
+    """Return a low-resolution, watermarked JPEG used only by the live preview."""
     img = generate_flyer_image(form_data, photo_file, render_text=True)
     pw = 540
     ph = int(img.height * pw / img.width)
+    preview = img.resize((pw, ph), Image.LANCZOS).convert('RGBA')
+
+    # Keep the preview visibly distinct from the paid, clean download. Burn the
+    # watermark into the pixels so it remains when the preview is screen-captured.
+    watermark_layer = Image.new('RGBA', (pw * 2, ph * 2), (0, 0, 0, 0))
+    watermark_draw = ImageDraw.Draw(watermark_layer)
+    watermark_font = ImageFont.truetype(str(FONTS_DIR / 'Poppins-Bold.ttf'), 19)
+    watermark_text = 'APERÇU · NON VALABLE'
+    step_y = 340
+    for row, y in enumerate(range(0, ph * 2, step_y)):
+        x_offset = 0 if row % 2 == 0 else -170
+        for x in range(x_offset, pw * 2, 600):
+            watermark_draw.text(
+                (x, y),
+                watermark_text,
+                font=watermark_font,
+                fill=(255, 255, 255, 66),
+                stroke_width=1,
+                stroke_fill=(15, 23, 42, 68),
+            )
+    watermark_layer = watermark_layer.rotate(28, resample=Image.BICUBIC, expand=False)
+    crop_left = (watermark_layer.width - pw) // 2
+    crop_top = (watermark_layer.height - ph) // 2
+    watermark_layer = watermark_layer.crop((crop_left, crop_top, crop_left + pw, crop_top + ph))
+    preview = Image.alpha_composite(preview, watermark_layer).convert('RGB')
+
     buf = io.BytesIO()
-    img.resize((pw, ph), Image.LANCZOS).convert('RGB').save(buf, 'JPEG', quality=85)
+    preview.save(buf, 'JPEG', quality=82)
     buf.seek(0)
     return buf.getvalue()
 
@@ -415,6 +548,3 @@ def generate_flyer_pdf_bytes(form_data: dict, photo_file=None) -> bytes:
     c.save()
     buf.seek(0)
     return buf.getvalue()
-
-
-

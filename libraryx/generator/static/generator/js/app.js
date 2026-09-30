@@ -22,10 +22,13 @@ const previewImage       = document.getElementById('preview-image');
 const previewError       = document.getElementById('preview-error');
 const previewErrorMsg    = document.getElementById('preview-error-msg');
 const previewFooter      = document.getElementById('preview-footer');
+const previewIdleMessage = previewIdle.querySelector('p');
+const DEFAULT_PREVIEW_MESSAGE = 'Remplissez le formulaire puis cliquez sur Prévisualiser.';
+let activePreviewObjectUrl = null;
 
 // URLs injected from window (set inline in template via data attrs)
 const PREVIEW_URL  = document.getElementById('flyer-form').dataset.previewUrl  || '/preview/';
-const DOWNLOAD_URL = document.getElementById('flyer-form').dataset.downloadUrl || '/download/';
+const PAYMENT_START_URL = document.getElementById('flyer-form').dataset.paymentStartUrl || '/payment/create/';
 
 /* ── Photo drag-and-drop ───────────────────────────────────────────── */
 photoDropZone.addEventListener('dragover', (e) => {
@@ -81,7 +84,16 @@ function clearPhoto() {
 }
 
 /* ── Show/hide preview states ──────────────────────────────────────── */
+function releasePreviewImage() {
+  if (activePreviewObjectUrl) {
+    URL.revokeObjectURL(activePreviewObjectUrl);
+    activePreviewObjectUrl = null;
+  }
+  previewImage.removeAttribute('src');
+}
+
 function showIdle() {
+  releasePreviewImage();
   previewIdle.style.display = '';
   previewLoading.style.display = 'none';
   previewImageWrapper.style.display = 'none';
@@ -91,6 +103,7 @@ function showIdle() {
 }
 
 function showLoading() {
+  releasePreviewImage();
   previewIdle.style.display = 'none';
   previewLoading.style.display = '';
   previewImageWrapper.style.display = 'none';
@@ -99,6 +112,9 @@ function showLoading() {
 }
 
 function showImage(src) {
+  releasePreviewImage();
+  activePreviewObjectUrl = src.startsWith('blob:') ? src : null;
+  previewIdleMessage.textContent = DEFAULT_PREVIEW_MESSAGE;
   previewIdle.style.display = 'none';
   previewLoading.style.display = 'none';
   previewError.style.display = 'none';
@@ -114,6 +130,7 @@ function showImage(src) {
 
 
 function showError(msg) {
+  releasePreviewImage();
   previewIdle.style.display = 'none';
   previewLoading.style.display = 'none';
   previewImageWrapper.style.display = 'none';
@@ -127,6 +144,29 @@ function setDownloadEnabled(enabled) {
   downloadBtn.disabled  = !enabled;
   downloadBtn2.disabled = !enabled;
 }
+
+function hidePreviewForPrivacy() {
+  if (!previewImageWrapper || previewImageWrapper.style.display === 'none') return;
+  showIdle();
+  previewIdleMessage.textContent = 'Aperçu masqué pour protéger votre création. Cliquez sur Prévisualiser pour le réafficher.';
+}
+
+window.addEventListener('blur', hidePreviewForPrivacy);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') hidePreviewForPrivacy();
+});
+document.addEventListener('contextmenu', (event) => {
+  if (event.target.closest('#preview-image-wrapper')) event.preventDefault();
+});
+previewImage.addEventListener('dragstart', (event) => event.preventDefault());
+window.addEventListener('keydown', (event) => {
+  const key = event.key.toLowerCase();
+  const commandKey = event.ctrlKey || event.metaKey;
+  if (event.key === 'PrintScreen' || (commandKey && ['p', 's'].includes(key))) {
+    event.preventDefault();
+    hidePreviewForPrivacy();
+  }
+});
 
 /* ── Build FormData from the form ──────────────────────────────────── */
 function buildFormData() {
@@ -169,7 +209,7 @@ previewBtn.addEventListener('click', async () => {
   }
 });
 
-/* ── Download PDF ───────────────────────────────────────────────────── */
+/* ── Paid flyer download ─────────────────────────────────────────────── */
 async function triggerDownload() {
   if (!form.reportValidity()) {
     return;
@@ -179,7 +219,7 @@ async function triggerDownload() {
 
   try {
     const fd = buildFormData();
-    const resp = await fetch(DOWNLOAD_URL, {
+    const resp = await fetch(PAYMENT_START_URL, {
       method: 'POST',
       headers: { 'X-CSRFToken': getCsrf() },
       body: fd,
@@ -190,19 +230,11 @@ async function triggerDownload() {
       throw new Error(errData.error || `HTTP ${resp.status}`);
     }
 
-    const blob = await resp.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = 'soutenance_flyer.png';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    // Delay revocation to allow the browser to initiate the download thread and resolve metadata
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 250);
+    const data = await resp.json();
+    if (!data.checkout_url) {
+      throw new Error('Impossible d’ouvrir la page de paiement. Réessayez.');
+    }
+    window.location.assign(data.checkout_url);
   } catch (err) {
     alert('Erreur lors du téléchargement : ' + err.message);
   } finally {
@@ -372,12 +404,7 @@ function selectStudent(s) {
 
   const niveauSelect = document.getElementById('niveau');
   if (niveauSelect && s.niveau) niveauSelect.value = s.niveau;
-
-  const togeCheck = document.getElementById('toge');
-  if (togeCheck) togeCheck.checked = !!s.toge;
-
-  const echarpeCheck = document.getElementById('echarpe');
-  if (echarpeCheck) echarpeCheck.checked = !!s.echarpe;
+  resetTemplateSelection(false);
 
   // Fill theme and supervisors if available in saved record
   const themeInput = document.getElementById('theme');
@@ -405,6 +432,21 @@ function escapeHtml(str) {
 const templateChips = document.querySelectorAll('.template-chip');
 const templateChoiceInput = document.getElementById('template_choice');
 const dlTemplateChoiceInput = document.getElementById('dl-template_choice');
+const filiereSelect = document.getElementById('filiere');
+const niveauSelect = document.getElementById('niveau');
+const autoTemplateLabel = document.getElementById('auto-template-label');
+
+function resetTemplateSelection(refreshPreview = true) {
+  if (!templateChips.length) return;
+  const autoChip = document.querySelector('.template-chip[data-template="auto"]');
+  templateChips.forEach(c => c.classList.toggle('active', c === autoChip));
+  if (templateChoiceInput) templateChoiceInput.value = '';
+  if (dlTemplateChoiceInput) dlTemplateChoiceInput.value = '';
+  if (autoTemplateLabel && niveauSelect) {
+    autoTemplateLabel.textContent = `Niveau ${niveauSelect.value.replace(/^N/, '')}`;
+  }
+  if (refreshPreview) scheduleAutoPreview();
+}
 
 if (templateChips.length > 0) {
   templateChips.forEach(chip => {
@@ -416,13 +458,24 @@ if (templateChips.length > 0) {
       if (templateChoiceInput) templateChoiceInput.value = val;
       if (dlTemplateChoiceInput) dlTemplateChoiceInput.value = val;
 
+      if (selectedTemplate === 'auto') {
+        if (autoTemplateLabel && niveauSelect) {
+          autoTemplateLabel.textContent = `Niveau ${niveauSelect.value.replace(/^N/, '')}`;
+        }
+      } else {
+        const [filiere, niveau] = selectedTemplate.split('-');
+        if (filiereSelect) filiereSelect.value = filiere;
+        if (niveauSelect) niveauSelect.value = niveau;
+        if (autoTemplateLabel) autoTemplateLabel.textContent = `Niveau ${niveauSelect.value.replace(/^N/, '')}`;
+      }
+
       // Re-trigger preview generation with the new selected template
       previewBtn.click();
     });
   });
+
+  [filiereSelect, niveauSelect].forEach(select => {
+    if (select) select.addEventListener('change', () => resetTemplateSelection());
+  });
 }
-
-
-
-
 

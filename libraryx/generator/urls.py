@@ -8,6 +8,10 @@ urlpatterns = [
     path('', views.FlyerFormView.as_view(), name='home'),
     path('preview/', views.FlyerPreviewView.as_view(), name='preview'),
     path('download/', views.FlyerDownloadView.as_view(), name='download'),
+    path('payment/create/', views.FlyerPaymentStartView.as_view(), name='payment_start'),
+    path('payment/<uuid:order_id>/', views.FlyerPaymentCheckoutView.as_view(), name='payment_checkout'),
+    path('payment/<uuid:order_id>/status/', views.FlyerPaymentStatusView.as_view(), name='payment_status'),
+    path('payment/<uuid:order_id>/download/', views.FlyerPaymentDownloadView.as_view(), name='payment_download'),
 
     # Admin Authentication
     path('login/', views.AdminLoginView.as_view(), name='login'),

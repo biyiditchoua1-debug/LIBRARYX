@@ -362,6 +362,13 @@ form {
   color: rgba(148, 163, 184, 0.45);
 }
 
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--c-muted);
+  font-size: 0.72rem;
+}
+
 .form-input:focus {
   border-color: var(--c-primary);
   background: var(--c-input-focus);
@@ -635,12 +642,47 @@ select option {
   display: flex;
   justify-content: center;
   animation: fadeIn 0.4s ease;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* A browser-layer watermark stays visible even if a cached preview lacks one. */
+.preview-image-wrapper::before,
+.preview-image-wrapper::after {
+  content: "APERÇU · NON VALABLE · APERÇU · NON VALABLE";
+  position: absolute;
+  left: -25%;
+  z-index: 2;
+  width: 150%;
+  transform: rotate(-27deg);
+  color: rgba(255, 255, 255, 0.72);
+  -webkit-text-stroke: 0.55px rgba(15, 23, 42, 0.78);
+  text-shadow: 0 2px 5px rgba(15, 23, 42, 0.8);
+  font-size: clamp(15px, 2.4vw, 25px);
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.preview-image-wrapper::before {
+  top: 31%;
+}
+
+.preview-image-wrapper::after {
+  top: 66%;
+  font-size: clamp(13px, 2vw, 20px);
 }
 
 #preview-image {
   max-width: 100%;
   border-radius: var(--radius-sm);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .preview-stamp {
@@ -656,6 +698,16 @@ select option {
   letter-spacing: 0.06em;
   color: var(--c-primary);
   text-transform: uppercase;
+  z-index: 3;
+}
+
+@media print {
+  #preview-image-wrapper,
+  #preview-image,
+  .preview-stamp,
+  #preview-footer {
+    display: none !important;
+  }
 }
 
 .error-icon {
@@ -712,6 +764,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 12px;
 }
 
+.nav-link-form {
+  display: flex;
+  margin: 0;
+}
+
 .nav-link {
   color: var(--c-muted);
   text-decoration: none;
@@ -721,6 +778,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-radius: var(--radius-sm);
   transition: var(--transition);
   border: 1px solid transparent;
+}
+
+.nav-link-form .nav-link {
+  background: transparent;
+  cursor: pointer;
 }
 
 .nav-link:hover {

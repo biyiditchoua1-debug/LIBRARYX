@@ -40,7 +40,10 @@
         <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
         <a href="{% url 'generator:add_student' %}" class="nav-link active">➕ Ajouter Étudiant</a>
-        <a href="{% url 'generator:logout' %}" class="nav-link" style="color: #f87171;">🚪 Déconnexion</a>
+        <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
+          {% csrf_token %}
+          <button type="submit" class="nav-link" style="color: #f87171;">🚪 Déconnexion</button>
+        </form>
       </nav>
       <div class="header-badge">
         <span class="badge-dot"></span>
@@ -103,7 +106,13 @@
             </div>
           </div>
 
-          <input type="hidden" id="niveau" name="niveau" value="N2" />
+          <div class="form-group">
+            <label class="form-label" for="niveau">🎓 Niveau</label>
+            <select class="form-input" id="niveau" name="niveau">
+              <option value="N2" {% if form_data.niveau == 'N2' %}selected{% endif %}>Niveau 2 (N2)</option>
+              <option value="N3" {% if form_data.niveau == 'N3' or not form_data.niveau %}selected{% endif %}>Niveau 3 (N3)</option>
+            </select>
+          </div>
 
           <!-- Thème -->
           <div class="form-group">
@@ -168,4 +177,3 @@
 
 </body>
 </html>
-

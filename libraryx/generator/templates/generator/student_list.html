@@ -39,7 +39,10 @@
         <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
         <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link active">Étudiants</a>
-        <a href="{% url 'generator:logout' %}" class="nav-link" style="color: #f87171;">🚪 Déconnexion</a>
+        <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
+          {% csrf_token %}
+          <button type="submit" class="nav-link" style="color: #f87171;">🚪 Déconnexion</button>
+        </form>
       </nav>
       <div class="header-badge">
         <span class="badge-dot"></span>
@@ -94,7 +97,7 @@
             <tbody>
               {% for student in students %}
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                  <td style="padding: 14px 16px; color: #64748b; font-weight: 500;">{{ forloop.counter }}</td>
+                  <td style="padding: 14px 16px; color: #64748b; font-weight: 500;">{{ students.start_index|add:forloop.counter0 }}</td>
                   <td style="padding: 14px 16px; font-weight: 600; color: #ffffff;">
                     {{ student.full_name }}
                   </td>
@@ -124,6 +127,19 @@
             </tbody>
           </table>
         </div>
+        {% if students.has_other_pages %}
+          <nav aria-label="Pagination des étudiants" style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 4px;">
+            <span>Page {{ students.number }} / {{ students.paginator.num_pages }} · {{ students.start_index }}–{{ students.end_index }} sur {{ students.paginator.count }}</span>
+            <div style="display:flex; gap:8px;">
+              {% if students.has_previous %}
+                <a class="btn btn-primary" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ students.previous_page_number }}">Précédent</a>
+              {% endif %}
+              {% if students.has_next %}
+                <a class="btn btn-primary" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ students.next_page_number }}">Suivant</a>
+              {% endif %}
+            </div>
+          </nav>
+        {% endif %}
 
       </section>
 

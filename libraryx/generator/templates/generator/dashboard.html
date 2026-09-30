@@ -40,7 +40,10 @@
         <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
         <a href="{% url 'generator:dashboard' %}" class="nav-link active">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
-        <a href="{% url 'generator:logout' %}" class="nav-link" style="color: #f87171;">🚪 Déconnexion</a>
+        <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
+          {% csrf_token %}
+          <button type="submit" class="nav-link" style="color: #f87171;">🚪 Déconnexion</button>
+        </form>
       </nav>
       <div class="header-badge">
         <span class="badge-dot"></span>
@@ -99,7 +102,7 @@
               ➕ Ajouter un candidat
             </a>
             <a id="export-btn"
-               href="{% url 'generator:dashboard_download' %}?q={{ search_query }}&filiere={{ current_filter }}&toge={{ toge_filter }}&echarpe={{ echarpe_filter }}&niveau={{ niveau_filter }}"
+               href="{% url 'generator:dashboard_download' %}?q={{ search_query|urlencode }}&filiere={{ current_filter|urlencode }}&toge={{ toge_filter|urlencode }}&echarpe={{ echarpe_filter|urlencode }}&niveau={{ niveau_filter|urlencode }}&duplicates={{ duplicates_filter|urlencode }}"
                class="btn btn-export">
               📥 Exporter (PDF)
             </a>
@@ -176,9 +179,9 @@
         <div class="financial-summary-panel">
           <div class="financial-cards">
             <div class="fin-card">
-              <span class="fin-label">💸 Revenus Bruts (Enregistrements)</span>
+              <span class="fin-label">💸 Revenus après déduction fixe</span>
               <h3 class="fin-value secret-value" id="raw-total-val" data-secret="{{ raw_total }} FCFA">*** FCFA</h3>
-              
+              <p class="fin-sub">Déduction appliquée : −{{ fixed_total_deduction }} FCFA</p>
             </div>
             <div class="fin-card">
               <span class="fin-label">🔄 Ajustements Manuels</span>
@@ -242,7 +245,7 @@
               <tbody>
                 {% for student in students %}
                   <tr class="{% cycle '' 'row-dark' %}">
-                    <td><strong>{{ forloop.counter }}</strong></td>
+                    <td><strong>{{ students.start_index|add:forloop.counter0 }}</strong></td>
                     <td>
                       {{ student.full_name }}
                       {% if student.pk in duplicate_student_ids %}
@@ -318,6 +321,19 @@
                 {% endfor %}
               </tbody>
             </table>
+            {% if students.has_other_pages %}
+              <nav aria-label="Pagination des candidats" style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 4px;">
+                <span>Page {{ students.number }} / {{ students.paginator.num_pages }} · {{ students.start_index }}–{{ students.end_index }} sur {{ students.paginator.count }}</span>
+                <div style="display:flex; gap:8px;">
+                  {% if students.has_previous %}
+                    <a class="btn btn-primary" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ students.previous_page_number }}">Précédent</a>
+                  {% endif %}
+                  {% if students.has_next %}
+                    <a class="btn btn-primary" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ students.next_page_number }}">Suivant</a>
+                  {% endif %}
+                </div>
+              </nav>
+            {% endif %}
           {% else %}
             <div class="empty-state">
               {% if duplicates_filter == '1' %}
