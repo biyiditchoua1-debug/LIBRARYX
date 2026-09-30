@@ -130,44 +130,6 @@ class FlyerDownloadView(View):
 
         try:
             img = generate_flyer_image(form_data, photo_file)
-            
-            # Save candidate registration to statistics database (skip if name already registered)
-            full_name = form_data['full_name'].strip().upper()   # store in UPPERCASE
-            classe = request.POST.get('classe', '').strip()
-            toge = 'toge' in request.POST
-            echarpe = 'echarpe' in request.POST
-            filiere = form_data['filiere']
-            niveau = form_data['niveau']
-
-            already_exists = StudentRegistration.objects.filter(
-                full_name__iexact=full_name
-            ).exists()
-
-            if full_name:
-                theme_val = form_data.get('theme', '').strip()
-                acad_sup = request.POST.get('academic_supervisor', '').strip()
-                prof_sup = request.POST.get('professional_supervisor', '').strip()
-
-                if already_exists:
-                    # Update the existing record with new flyer info (theme/supervisors)
-                    existing = StudentRegistration.objects.get(full_name__iexact=full_name)
-                    if theme_val:   existing.theme = theme_val
-                    if acad_sup:    existing.academic_supervisor = acad_sup
-                    if prof_sup:    existing.professional_supervisor = prof_sup
-                    existing.save()
-                else:
-                    StudentRegistration.objects.create(
-                        full_name=full_name,
-                        classe=classe or 'Non spécifiée',
-                        toge=toge,
-                        echarpe=echarpe,
-                        filiere=filiere,
-                        niveau=niveau,
-                        theme=theme_val,
-                        academic_supervisor=acad_sup,
-                        professional_supervisor=prof_sup,
-                    )
-
             buf = io.BytesIO()
             img.save(buf, format='PNG')
             buf.seek(0)
