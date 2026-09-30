@@ -1,0 +1,169 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ajouter un Candidat – Soutenance IAI</title>
+  <meta name="description" content="Formulaire d'enregistrement direct d'un candidat aux soutenances." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+</head>
+<body>
+
+  <!-- Animated background -->
+  <div class="bg-gradient"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="page-wrapper">
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-logo">
+        <div class="logo-icon">🎓</div>
+        <div>
+          <h1 class="header-title">Flyer Soutenance</h1>
+          <span class="header-subtitle">IAI Cameroun</span>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
+        <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
+        <a href="{% url 'generator:add_student' %}" class="nav-link active">➕ Ajouter Étudiant</a>
+      </nav>
+      <div class="header-badge">
+        <span class="badge-dot"></span>
+        Enregistrement Direct
+      </div>
+    </header>
+
+    <!-- Main layout -->
+    <main class="main-layout" style="grid-template-columns: 1fr; max-width: 680px; margin: 0 auto;">
+      <section class="form-panel glass-card">
+        <div class="panel-header" style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h2 class="panel-title">Nouveau Candidat</h2>
+            <p class="panel-desc">Enregistrez un étudiant directement dans la base de données du tableau de bord.</p>
+          </div>
+          <a href="{% url 'generator:student_list' %}" class="btn btn-cancel" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none;">
+            ← Retour
+          </a>
+        </div>
+
+        {% if success_message %}
+          <div style="margin: 20px 28px 0; padding: 12px 16px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 10px; color: #34d399; font-size: 0.9rem;">
+            ✅ {{ success_message }}
+          </div>
+        {% endif %}
+
+        {% if error_message %}
+          <div style="margin: 20px 28px 0; padding: 12px 16px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; color: #f87171; font-size: 0.9rem;">
+            ⚠️ {{ error_message }}
+          </div>
+        {% endif %}
+
+        <form method="POST" action="{% url 'generator:add_student' %}">
+          {% csrf_token %}
+          {% if warn_duplicate %}
+            <input type="hidden" name="force_save" value="1" />
+          {% endif %}
+
+          <!-- Nom complet -->
+          <div class="form-group">
+            <label class="form-label" for="full_name">👤 Nom Complet du Candidat *</label>
+            <input class="form-input" type="text" id="full_name" name="full_name"
+                   placeholder="ex: MUSSOLO Jule Parfait" required autocomplete="off" value="{{ form_data.full_name }}" />
+          </div>
+
+          <!-- Classe & Filière -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="classe">🏫 Classe</label>
+              <input class="form-input" type="text" id="classe" name="classe"
+                     placeholder="ex: SR 3 - A" value="{{ form_data.classe }}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="filiere">📚 Filière</label>
+              <select class="form-input" id="filiere" name="filiere">
+                <option value="SR" {% if form_data.filiere == 'SR' %}selected{% endif %}>Système &amp; Réseaux (SR)</option>
+                <option value="GL" {% if form_data.filiere == 'GL' %}selected{% endif %}>Génie Logiciel (GL)</option>
+                <option value="SE" {% if form_data.filiere == 'SE' %}selected{% endif %}>Software Engineering (SE)</option>
+              </select>
+            </div>
+          </div>
+
+          <input type="hidden" id="niveau" name="niveau" value="N3" />
+
+          <!-- Thème -->
+          <div class="form-group">
+            <label class="form-label" for="theme">📋 Thème / Sujet du Projet</label>
+            <textarea class="form-input form-textarea" id="theme" name="theme" rows="3"
+              placeholder="ex: Conception d'un système de gestion réseau automatisé...">{{ form_data.theme }}</textarea>
+          </div>
+
+          <!-- Superviseurs -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="academic_supervisor">🎓 Encadreur Académique</label>
+              <input class="form-input" type="text" id="academic_supervisor" name="academic_supervisor"
+                     placeholder="ex: M. JUBO Celest" value="{{ form_data.academic_supervisor }}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="professional_supervisor">💼 Encadreur Professionnel</label>
+              <input class="form-input" type="text" id="professional_supervisor" name="professional_supervisor"
+                     placeholder="ex: Mme TWIDE Camille" value="{{ form_data.professional_supervisor }}" />
+            </div>
+          </div>
+
+          <!-- Accessoires -->
+          <div class="form-group">
+            <label class="form-label">🎓 Accessoires</label>
+            <div class="checkbox-row">
+              <label class="checkbox-container">
+                <input type="checkbox" id="toge" name="toge" value="1" {% if form_data.toge %}checked{% endif %} />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label">Toge</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="echarpe" name="echarpe" value="1" {% if form_data.echarpe %}checked{% endif %} />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label">Écharpe</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            {% if warn_duplicate %}
+              <button type="submit" class="btn btn-primary" style="flex: 2; background: linear-gradient(135deg, #f59e0b, #d97706);">
+                <span class="btn-icon">⚠️</span>
+                <span>Enregistrer quand même</span>
+              </button>
+            {% else %}
+              <button type="submit" class="btn btn-primary" style="flex: 2;">
+                <span class="btn-icon">➕</span>
+                <span>Enregistrer l'Étudiant</span>
+              </button>
+            {% endif %}
+            <a href="{% url 'generator:student_list' %}" class="btn btn-cancel" style="flex: 1; text-align: center; text-decoration: none; justify-content: center;">
+              Annuler
+            </a>
+          </div>
+
+        </form>
+      </section>
+    </main>
+  </div>
+
+</body>
+</html>
+

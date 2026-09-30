@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Générateur de Flyer – Soutenance IAI</title>
+  <meta name="description" content="Générez votre flyer de soutenance personnalisé pour le département Système & Réseaux N3 – IAI Cameroun." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+</head>
+<body>
+
+  <!-- Animated background -->
+  <div class="bg-gradient"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="page-wrapper">
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-logo">
+        <div class="logo-icon">🎓</div>
+        <div>
+          <h1 class="header-title">Flyer Soutenance</h1>
+          <span class="header-subtitle">IAI Cameroun</span>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="{% url 'generator:home' %}" class="nav-link active">Générateur</a>
+        <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
+      </nav>
+      <div class="header-badge">
+        <span class="badge-dot"></span>
+        Génération Instantanée
+      </div>
+    </header>
+
+    <!-- Main layout -->
+    <main class="main-layout">
+
+      <!-- ── LEFT: Form panel ── -->
+      <section class="form-panel glass-card">
+        <div class="panel-header">
+          <div class="step-indicator">
+            <span class="step active" data-step="1">1</span>
+            <span class="step-line"></span>
+            <span class="step active" data-step="2">2</span>
+            <span class="step-line"></span>
+            <span class="step" data-step="3">3</span>
+          </div>
+          <h2 class="panel-title">Informations du Candidat</h2>
+          <p class="panel-desc">Remplissez les champs ci-dessous. Les champs vides afficheront <em>--</em> sur le flyer.</p>
+        </div>
+
+        <form id="flyer-form" enctype="multipart/form-data" novalidate
+              data-preview-url="{% url 'generator:preview' %}"
+              data-download-url="{% url 'generator:download' %}"
+              data-search-url="{% url 'generator:student_search' %}"
+              data-check-duplicate-url="{% url 'generator:student_check_duplicate' %}">
+          {% csrf_token %}
+
+          <!-- Duplicate Candidate Warning Banner -->
+          <div id="duplicate-warning-banner" class="duplicate-banner" style="display:none;">
+            <div class="duplicate-banner-content">
+              <span class="duplicate-icon">⚠️</span>
+              <div class="duplicate-text">
+                <strong>Doublon potentiel détecté :</strong>
+                <span id="duplicate-details"></span>
+              </div>
+              <button type="button" id="duplicate-load-btn" class="btn-duplicate-load">
+                📥 Charger ses infos
+              </button>
+              <button type="button" id="duplicate-ignore-btn" class="btn-duplicate-ignore" title="Ignorer l'alerte de doublon">
+                ✕ Ignorer
+              </button>
+            </div>
+          </div>
+
+          <!-- Photo upload -->
+          <div class="form-group photo-upload-group">
+            <label class="form-label">📸 Photo du Candidat</label>
+            <div class="photo-drop-zone" id="photo-drop-zone">
+              <div class="photo-preview-container">
+                <img id="photo-preview-img" src="" alt="" style="display:none;" />
+                <div class="photo-placeholder" id="photo-placeholder">
+                  <div class="photo-icon">👤</div>
+                  <p>Glissez une photo ici ou<br /><strong>cliquez pour sélectionner</strong></p>
+                  <span class="photo-hint">JPG, PNG · Recadrage automatique</span>
+                </div>
+              </div>
+              <input type="file" id="photo-input" name="photo" accept="image/*" class="photo-input-hidden" />
+              <button type="button" class="photo-change-btn" id="photo-change-btn" style="display:none;">
+                ✕ Changer la photo
+              </button>
+            </div>
+          </div>
+
+          <!-- Nom complet & Classe -->
+          <div class="form-row">
+            <div class="form-group autocomplete-wrapper">
+              <label class="form-label" for="full_name">👤 Nom Complet</label>
+              <input class="form-input" type="text" id="full_name" name="full_name"
+                placeholder="ex: MUSSOLO Jule Parfait" autocomplete="off" required />
+              <div id="autocomplete-results" class="autocomplete-dropdown" style="display:none;"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="classe">🏫 Classe</label>
+              <input class="form-input" type="text" id="classe" name="classe"
+                placeholder="ex: SR 3 - A" required />
+            </div>
+          </div>
+
+          <!-- Filière -->
+          <div class="form-group">
+            <label class="form-label" for="filiere" >📚 Filière</label>
+            <select class="form-input" id="filiere" name="filiere">
+              <option value="SR">Système &amp; Réseaux (SR)</option>
+              <option value="GL">Génie Logiciel (GL)</option>
+              <option value="SE">Software Engineering (SE)</option>
+            </select>
+            <input type="hidden" id="niveau" name="niveau" value="N3" />
+          </div>
+
+          <!-- Accessoires -->
+          <div class="form-group">
+            <label class="form-label">🎓 Accessoires requis</label>
+            <div class="checkbox-row">
+              <label class="checkbox-container">
+                <input type="checkbox" id="toge" name="toge" value="true" />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label">Toge</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="echarpe" name="echarpe" value="true" />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label">Écharpe</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Thème -->
+          <div class="form-group">
+            <label class="form-label" for="theme">📋 Thème / Sujet du Projet</label>
+            <textarea class="form-input form-textarea" id="theme" name="theme" rows="4"
+              placeholder="ex: Conception d'un système de gestion réseau automatisé..." required></textarea>
+          </div>
+
+          <!-- Supervisors row -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="academic_supervisor">🎓 Superviseur Académique</label>
+              <input class="form-input" type="text" id="academic_supervisor" name="academic_supervisor"
+                placeholder="ex: M. JUBO Celest" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="professional_supervisor">💼 Superviseur Professionnel</label>
+              <input class="form-input" type="text" id="professional_supervisor" name="professional_supervisor"
+                placeholder="ex: Mme TWIDE Camille" />
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <input type="hidden" id="template_choice" name="template_choice" value="" />
+          <div class="form-actions">
+            <button type="button" id="preview-btn" class="btn btn-primary">
+              <span class="btn-icon">👁</span>
+              <span>Prévisualiser</span>
+            </button>
+            <button type="button" id="download-btn" class="btn btn-download" disabled>
+              <span class="btn-icon">⬇</span>
+              <span>Télécharger PNG</span>
+            </button>
+          </div>
+
+        </form>
+      </section>
+
+      <!-- ── RIGHT: Preview panel ── -->
+      <section class="preview-panel glass-card">
+        <div class="panel-header">
+          <h2 class="panel-title">Aperçu du Flyer</h2>
+          <p class="panel-desc">Le flyer sera exporté en PNG haute qualité.</p>
+        </div>
+
+        <!-- ── Post-Preview Template Switcher ── -->
+        <div class="template-switcher-panel" id="template-switcher-panel" style="display:none;">
+          <div class="template-switcher-header">
+            <span class="switcher-icon">🎨</span>
+            <span class="switcher-title">Changer le Modèle / Design</span>
+          </div>
+          <div class="template-chips-grid">
+            <button type="button" class="template-chip active" data-template="auto">
+              <span class="chip-code">✨ Auto</span>
+              <span class="chip-label">Basé sur filière</span>
+            </button>
+            <button type="button" class="template-chip" data-template="SR">
+              <span class="chip-code">SR</span>
+              <span class="chip-label">Système &amp; Réseaux</span>
+            </button>
+            <button type="button" class="template-chip" data-template="GL">
+              <span class="chip-code">GL</span>
+              <span class="chip-label">Génie Logiciel</span>
+            </button>
+            <button type="button" class="template-chip" data-template="SE">
+              <span class="chip-code">SE</span>
+              <span class="chip-label">Software Eng.</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="preview-container" id="preview-container">
+          <!-- Idle state -->
+          <div class="preview-idle" id="preview-idle">
+            <div class="preview-icon">🖼️</div>
+            <h3>Votre flyer apparaîtra ici</h3>
+            <p>Remplissez le formulaire puis cliquez sur <strong>Prévisualiser</strong>.</p>
+          </div>
+
+          <!-- Loading state -->
+          <div class="preview-loading" id="preview-loading" style="display:none;">
+            <div class="loading-spinner"></div>
+            <p>Génération en cours…</p>
+          </div>
+
+          <!-- Image preview -->
+          <div class="preview-image-wrapper" id="preview-image-wrapper" style="display:none;">
+            <img id="preview-image" src="" alt="Aperçu du flyer" />
+            <div class="preview-stamp">Aperçu</div>
+          </div>
+
+          <!-- Error state -->
+          <div class="preview-error" id="preview-error" style="display:none;">
+            <div class="error-icon">⚠️</div>
+            <h3>Erreur de génération</h3>
+            <p id="preview-error-msg">Une erreur s'est produite.</p>
+          </div>
+        </div>
+
+        <div class="preview-footer" id="preview-footer" style="display:none;">
+          <span class="preview-info">📐 Format A4 · 150 DPI</span>
+          <button type="button" id="download-btn-2" class="btn btn-download btn-sm">
+            <span class="btn-icon">⬇</span> Télécharger PNG
+          </button>
+        </div>
+      </section>
+
+    </main><!-- /.main-layout -->
+  </div><!-- /.page-wrapper -->
+
+  <!-- Hidden download form (PDF/PNG) -->
+  <form id="download-form" method="POST" action="{% url 'generator:download' %}" enctype="multipart/form-data" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="full_name" id="dl-full_name" />
+    <input type="hidden" name="theme" id="dl-theme" />
+    <input type="hidden" name="academic_supervisor" id="dl-academic_supervisor" />
+    <input type="hidden" name="professional_supervisor" id="dl-professional_supervisor" />
+    <input type="hidden" name="template_choice" id="dl-template_choice" />
+  </form>
+
+
+
+
+  <script src="{% static 'generator/js/app.js' %}?v=3"></script>
+</body>
+</html>

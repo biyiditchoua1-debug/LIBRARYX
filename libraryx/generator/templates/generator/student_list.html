@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Étudiants Enregistrés – Soutenance IAI</title>
+  <meta name="description" content="Liste des étudiants et candidats enregistrés pour la génération des flyers de soutenance." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+</head>
+<body>
+
+  <!-- Animated background -->
+  <div class="bg-gradient"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="page-wrapper">
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-logo">
+        <div class="logo-icon">🎓</div>
+        <div>
+          <h1 class="header-title">Flyer Soutenance</h1>
+          <span class="header-subtitle">IAI Cameroun</span>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
+        <a href="{% url 'generator:student_list' %}" class="nav-link active">Étudiants</a>
+      </nav>
+      <div class="header-badge">
+        <span class="badge-dot"></span>
+        {{ total_students }} Étudiants
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-layout" style="grid-template-columns: 1fr; max-width: 1100px; margin: 0 auto; gap: 24px;">
+      
+      <section class="glass-card" style="padding: 24px 28px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+          <div>
+            <h2 class="panel-title" style="margin-bottom: 4px;">Gestion des Étudiants</h2>
+            <p class="panel-desc">Consultez et mettez à jour la classe, la filière et le thème des candidats aux soutenances.</p>
+          </div>
+        </div>
+
+        <!-- Filters & Search -->
+        <form method="GET" action="{% url 'generator:student_list' %}" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+          <div style="flex: 1; min-width: 240px;">
+            <input type="text" name="q" value="{{ search_query }}" class="form-input" placeholder="🔍 Rechercher par nom..." />
+          </div>
+          <div style="width: 180px;">
+            <select name="filiere" class="form-input" onchange="this.form.submit()">
+              <option value="">Toutes les filières</option>
+              <option value="SR" {% if current_filter == 'SR' %}selected{% endif %}>Système &amp; Réseaux (SR)</option>
+              <option value="GL" {% if current_filter == 'GL' %}selected{% endif %}>Génie Logiciel (GL)</option>
+              <option value="SE" {% if current_filter == 'SE' %}selected{% endif %}>Software Engineering (SE)</option>
+            </select>
+          </div>
+          {% if search_query or current_filter %}
+            <a href="{% url 'generator:student_list' %}" class="btn btn-cancel" style="text-decoration: none; padding: 8px 14px; font-size: 0.85rem; align-self: center;">
+              Réinitialiser
+            </a>
+          {% endif %}
+        </form>
+
+        <!-- Students Table -->
+        <div style="overflow-x: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; color: #e2e8f0;">
+            <thead>
+              <tr style="background: rgba(15, 23, 42, 0.7); border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;">
+                <th style="padding: 12px 16px;">#</th>
+                <th style="padding: 12px 16px;">Nom Complet</th>
+                <th style="padding: 12px 16px;">Classe</th>
+                <th style="padding: 12px 16px;">Filière</th>
+                <th style="padding: 12px 16px;">Thème</th>
+                <th style="padding: 12px 16px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in students %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                  <td style="padding: 14px 16px; color: #64748b; font-weight: 500;">{{ forloop.counter }}</td>
+                  <td style="padding: 14px 16px; font-weight: 600; color: #ffffff;">
+                    {{ student.full_name }}
+                  </td>
+                  <td style="padding: 14px 16px; color: #cbd5e1;">{{ student.classe }}</td>
+                  <td style="padding: 14px 16px;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; 
+                      {% if student.filiere == 'SR' %}background: rgba(59,130,246,0.2); color: #60a5fa;{% elif student.filiere == 'GL' %}background: rgba(16,185,129,0.2); color: #34d399;{% else %}background: rgba(168,85,247,0.2); color: #c084fc;{% endif %}">
+                      {{ student.filiere }}
+                    </span>
+                  </td>
+                  <td style="padding: 14px 16px; color: #94a3b8; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ student.theme|default:"--" }}
+                  </td>
+                  <td style="padding: 14px 16px; text-align: right; white-space: nowrap;">
+                    <a href="{% url 'generator:edit_student' student.pk %}" style="color: #60a5fa; text-decoration: none; font-size: 0.85rem; font-weight: 500;">
+                      ✏️ Éditer (Filière / Thème / Classe)
+                    </a>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6" style="padding: 32px; text-align: center; color: #64748b;">
+                    Aucun étudiant trouvé.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+</body>
+</html>

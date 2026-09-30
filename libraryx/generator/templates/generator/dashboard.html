@@ -1,0 +1,484 @@
+{% load generator_extras %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tableau de Bord – Soutenance IAI</title>
+  <meta name="description" content="Tableau de bord des candidats enregistrés pour les soutenances." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+</head>
+<body>
+
+  <!-- Animated background -->
+  <div class="bg-gradient"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="page-wrapper">
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-logo">
+        <div class="logo-icon">🎓</div>
+        <div>
+          <h1 class="header-title">Flyer Soutenance</h1>
+          <span class="header-subtitle">IAI Cameroun</span>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
+        <a href="{% url 'generator:dashboard' %}" class="nav-link active">Tableau de Bord</a>
+      </nav>
+      <div class="header-badge">
+        <span class="badge-dot"></span>
+        Génération Instantanée
+      </div>
+    </header>
+
+    <!-- Main layout -->
+    <main class="main-layout">
+      <!-- ── Dashboard panel ── -->
+      <section class="dashboard-panel glass-card">
+        <div class="panel-header">
+          <h2 class="panel-title">Candidats Enregistrés</h2>
+          <p class="panel-desc">Liste de tous les étudiants ayant généré et téléchargé leur flyer de soutenance.</p>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+          <div class="filter-group">
+            <div class="search-box-inline">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="student-search-input" class="filter-select search-input"
+                     placeholder="Rechercher par nom..." value="{{ search_query }}" autocomplete="off" />
+            </div>
+            <span class="filter-label">Filière :</span>
+            <select id="filiere-filter" class="filter-select">
+              <option value="" {% if not current_filter %}selected{% endif %}>Toutes</option>
+              <option value="GL" {% if current_filter == 'GL' %}selected{% endif %}>GL</option>
+              <option value="SR" {% if current_filter == 'SR' %}selected{% endif %}>SR</option>
+              <option value="SE" {% if current_filter == 'SE' %}selected{% endif %}>SE</option>
+            </select>
+            <span class="filter-label">Toge :</span>
+            <select id="toge-filter" class="filter-select">
+              <option value="" {% if not toge_filter %}selected{% endif %}>Tous</option>
+              <option value="1" {% if toge_filter == '1' %}selected{% endif %}>Avec Toge</option>
+            </select>
+            <span class="filter-label">Écharpe :</span>
+            <select id="echarpe-filter" class="filter-select">
+              <option value="" {% if not echarpe_filter %}selected{% endif %}>Tous</option>
+              <option value="1" {% if echarpe_filter == '1' %}selected{% endif %}>Avec Écharpe</option>
+            </select>
+            <span class="filter-label">Niveau :</span>
+            <select id="niveau-filter" class="filter-select">
+              <option value="" {% if not niveau_filter %}selected{% endif %}>Tous</option>
+              <option value="N2" {% if niveau_filter == 'N2' %}selected{% endif %}>Niveau 2</option>
+              <option value="N3" {% if niveau_filter == 'N3' %}selected{% endif %}>Niveau 3</option>
+            </select>
+            <span class="filter-label">Doublons :</span>
+            <select id="duplicates-filter" class="filter-select">
+              <option value="" {% if not duplicates_filter %}selected{% endif %}>Tous</option>
+              <option value="1" {% if duplicates_filter == '1' %}selected{% endif %}>⚠️ Doublons ({{ duplicate_count }})</option>
+            </select>
+          </div>
+          <div class="filter-actions-group" style="display:flex; gap:10px; align-items:center;">
+            <a href="{% url 'generator:add_student' %}" class="btn btn-add-candidate">
+              ➕ Ajouter un candidat
+            </a>
+            <a id="export-btn"
+               href="{% url 'generator:dashboard_download' %}?q={{ search_query }}&filiere={{ current_filter }}&toge={{ toge_filter }}&echarpe={{ echarpe_filter }}&niveau={{ niveau_filter }}"
+               class="btn btn-export">
+              📥 Exporter (PDF)
+            </a>
+          </div>
+        </div>
+
+        <!-- ── Section Gestion des Doublons ── -->
+        {% if duplicate_pairs %}
+          <div class="duplicate-manager-panel">
+            <div class="dup-panel-header">
+              <div class="dup-panel-title">
+                <span class="dup-header-icon">⚠️</span>
+                <h3>Doublons Potentiels Détectés ({{ duplicate_pairs|length }} paire{{ duplicate_pairs|length|pluralize }})</h3>
+              </div>
+              <p class="dup-panel-sub">Paires d'étudiants ayant un nom identique ou très similaire. Supprimez l'enregistrement superflu pour ne garder que le bon candidat.</p>
+            </div>
+
+            <div class="dup-pairs-grid">
+              {% for pair in duplicate_pairs %}
+                <div class="dup-card">
+                  <div class="dup-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="badge-similarity {% if pair.is_exact %}exact{% endif %}">
+                      {% if pair.is_exact %}⚡ 100% Identique{% else %}⚠️ {{ pair.similarity }}% Similitude{% endif %}
+                    </span>
+                    <form method="POST" action="{% url 'generator:ignore_duplicate_pair' pair.student1.pk pair.student2.pk %}" style="margin:0;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn-dup-ignore" title="Masquer cet avertissement de doublon">
+                        ✕ Ignorer l'alerte
+                      </button>
+                    </form>
+                  </div>
+
+                  <div class="dup-card-body">
+                    <!-- Candidat 1 -->
+                    <div class="dup-candidate-box">
+                      <div class="dup-cand-info">
+                        <strong class="dup-cand-name">{{ pair.student1.full_name }}</strong>
+                        <span class="dup-cand-meta">{{ pair.student1.classe }} · {{ pair.student1.filiere }}-{{ pair.student1.niveau }}</span>
+                        <span class="dup-cand-date">Créé le {{ pair.student1.created_at|date:"d/m/Y H:i" }}</span>
+                      </div>
+                      <form method="POST" action="{% url 'generator:delete_student' pair.student1.pk %}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer {{ pair.student1.full_name|escapejs }} ?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-dup-delete">
+                          🗑️ Supprimer
+                        </button>
+                      </form>
+                    </div>
+
+                    <div class="dup-vs-divider">VS</div>
+
+                    <!-- Candidat 2 -->
+                    <div class="dup-candidate-box">
+                      <div class="dup-cand-info">
+                        <strong class="dup-cand-name">{{ pair.student2.full_name }}</strong>
+                        <span class="dup-cand-meta">{{ pair.student2.classe }} · {{ pair.student2.filiere }}-{{ pair.student2.niveau }}</span>
+                        <span class="dup-cand-date">Créé le {{ pair.student2.created_at|date:"d/m/Y H:i" }}</span>
+                      </div>
+                      <form method="POST" action="{% url 'generator:delete_student' pair.student2.pk %}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer {{ pair.student2.full_name|escapejs }} ?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-dup-delete">
+                          🗑️ Supprimer
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+
+        <!-- Section Financière -->
+        <div class="financial-summary-panel">
+          <div class="financial-cards">
+            <div class="fin-card">
+              <span class="fin-label">💸 Revenus Bruts (Enregistrements)</span>
+              <h3 class="fin-value secret-value" id="raw-total-val" data-secret="{{ raw_total }} FCFA">*** FCFA</h3>
+              
+            </div>
+            <div class="fin-card">
+              <span class="fin-label">🔄 Ajustements Manuels</span>
+              <h3 class="fin-value secret-value" id="adjustments-sum-val" data-secret="{{ adjustments_sum }} FCFA">*** FCFA</h3>
+              <p class="fin-sub">Total des débits/crédits</p>
+            </div>
+            <div class="fin-card net" id="solde-toggle" style="cursor: pointer;" title="Cliquez pour afficher/masquer le solde">
+              <span class="fin-label">📈 Solde (Total Recettes Nettes)</span>
+              <h3 class="fin-value secret-value" id="net-total-val" data-secret="{{ net_total }} FCFA">*** FCFA</h3>
+              
+            </div>
+          </div>
+
+          <div class="financial-actions">
+            <!-- Formulaire d'ajustement -->
+            <form method="POST" action="{% url 'generator:add_adjustment' %}" class="adjustment-form-inline">
+              {% csrf_token %}
+              <div class="input-inline-group">
+                <input type="number" name="amount" placeholder="Montant (ex: -8000)" required class="filter-select adjust-num" />
+                <input type="text" name="reason" placeholder="Raison / Motif (ex: Réduction)" class="filter-select adjust-desc" />
+                <button type="submit" class="btn btn-adjust">Appliquer</button>
+              </div>
+            </form>
+
+            <!-- Historique des Ajustements -->
+            {% if adjustments %}
+              <div class="adjustments-history">
+                <span class="history-title">Ajustements Appliqués :</span>
+                <div class="adjustments-tags">
+                  {% for adj in adjustments %}
+                    <div class="adjustment-tag {% if adj.amount < 0 %}negative{% else %}positive{% endif %}">
+                      <span class="adj-text">{{ adj.reason }}: <strong>{{ adj.amount }} FCFA</strong></span>
+                      <form method="POST" action="{% url 'generator:delete_adjustment' adj.pk %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-delete-adj" title="Supprimer">✕</button>
+                      </form>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          {% if students %}
+            <table class="db-table">
+              <thead>
+                <tr>
+                  <th>N°</th>
+                  <th>Nom Complet</th>
+                  <th>Classe</th>
+                  <th>Toge</th>
+                  <th>Écharpe</th>
+                  <th>Frais Sout.</th>
+                  <th>Filière &amp; Niv.</th>
+                  <th>Montant</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for student in students %}
+                  <tr class="{% cycle '' 'row-dark' %}">
+                    <td><strong>{{ forloop.counter }}</strong></td>
+                    <td>
+                      {{ student.full_name }}
+                      {% if student.pk in duplicate_student_ids %}
+                        <span class="badge-table-dup" title="Doublon potentiel (Similitude {{ student_max_similarity|get_item:student.pk }}%)">
+                          ⚠️ Doublon
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td><code>{{ student.classe }}</code></td>
+
+
+                    {# Toge #}
+                    <td>
+                      <label class="inline-checkbox">
+                        <input type="checkbox"
+                          data-pk="{{ student.pk }}"
+                          data-field="toge"
+                          {% if student.toge %}checked{% endif %}
+                          onchange="toggleField(this)" />
+                      </label>
+                    </td>
+
+                    {# Écharpe #}
+                    <td>
+                      <label class="inline-checkbox">
+                        <input type="checkbox"
+                          data-pk="{{ student.pk }}"
+                          data-field="echarpe"
+                          {% if student.echarpe %}checked{% endif %}
+                          onchange="toggleField(this)" />
+                      </label>
+                    </td>
+
+                    {# Frais de soutenance #}
+                    <td>
+                      <label class="inline-checkbox frais">
+                        <input type="checkbox"
+                          data-pk="{{ student.pk }}"
+                          data-field="frais_soutenance"
+                          {% if student.frais_soutenance %}checked{% endif %}
+                          onchange="toggleField(this)" />
+                        <span class="frais-label">{% if student.niveau == 'N2' %}+2 000{% else %}+2 500{% endif %}</span>
+                      </label>
+                    </td>
+
+                    <td>
+                      <span class="filiere-tag {{ student.filiere|lower }}">
+                        {{ student.filiere }} - {{ student.niveau }}
+                      </span>
+                    </td>
+
+                    {# Per-student computed amount — updated live by JS #}
+                    <td class="amount-cell" id="amt-{{ student.pk }}">
+                      {% with amt=student_amounts|get_item:student.pk %}
+                        {% if amt %}
+                          <span class="amount-badge">{{ amt }} FCFA</span>
+                        {% else %}
+                          <span class="amount-zero">0 FCFA</span>
+                        {% endif %}
+                      {% endwith %}
+                    </td>
+
+                    {# Edit & Delete #}
+                    <td class="actions-cell-del" style="display:flex; gap:6px; align-items:center; justify-content:center;">
+                      <a href="{% url 'generator:edit_student' student.pk %}" class="btn-row-edit" title="Modifier">✏️</a>
+                      <form method="POST" action="{% url 'generator:delete_student' student.pk %}"
+                            onsubmit="return confirm('Supprimer {{ student.full_name|escapejs }} ?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-row-delete" title="Supprimer">🗑</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="empty-state">
+              {% if duplicates_filter == '1' %}
+                <div class="icon">✅</div>
+                <h3>Aucun doublon trouvé</h3>
+                <p>Tous vos candidats enregistrés sont uniques. Aucun doublon n'est actuellement détecté.</p>
+                <a href="{% url 'generator:dashboard' %}" class="btn btn-primary" style="margin-top:14px; display:inline-block; text-decoration:none;">📋 Afficher tous les candidats</a>
+              {% else %}
+                <div class="icon">📁</div>
+                <h3>Aucun candidat enregistré</h3>
+                <p>Les candidats apparaîtront ici dès qu'ils auront téléchargé leur flyer ou que vous les aurez ajoutés.</p>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </main><!-- /.main-layout -->
+  </div><!-- /.page-wrapper -->
+
+  <script>
+    function applyFilters() {
+
+      const searchInput = document.getElementById('student-search-input');
+      const q          = searchInput ? searchInput.value.trim() : '';
+      const filiere    = document.getElementById('filiere-filter').value;
+      const toge       = document.getElementById('toge-filter').value;
+      const echarpe    = document.getElementById('echarpe-filter').value;
+      const niveau     = document.getElementById('niveau-filter').value;
+      const duplicates = document.getElementById('duplicates-filter').value;
+      const params     = new URLSearchParams();
+      if (q)           params.set('q',          q);
+      if (filiere)     params.set('filiere',    filiere);
+      if (toge)        params.set('toge',       toge);
+      if (echarpe)     params.set('echarpe',    echarpe);
+      if (niveau)      params.set('niveau',     niveau);
+      if (duplicates)  params.set('duplicates', duplicates);
+
+      // Update export button href live
+      const exportBtn = document.getElementById('export-btn');
+      const base = exportBtn.href.split('?')[0];
+      exportBtn.href = base + (params.toString() ? '?' + params.toString() : '');
+
+      // Reload page
+      window.location.search = params.toString();
+    }
+
+    document.getElementById('filiere-filter').addEventListener('change', applyFilters);
+    document.getElementById('toge-filter').addEventListener('change', applyFilters);
+    document.getElementById('echarpe-filter').addEventListener('change', applyFilters);
+    document.getElementById('niveau-filter').addEventListener('change', applyFilters);
+    document.getElementById('duplicates-filter').addEventListener('change', applyFilters);
+
+
+    const searchInput = document.getElementById('student-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyFilters();
+        }
+      });
+      let searchTimeout = null;
+      searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(applyFilters, 600);
+      });
+    }
+
+
+    function toggleField(input) {
+      const pk = input.getAttribute('data-pk');
+      const field = input.getAttribute('data-field');
+      const value = input.checked ? '1' : '0';
+      
+      const formData = new FormData();
+      formData.set('field', field);
+      formData.set('value', value);
+      
+      // Get CSRF token from the document
+      const csrfElement = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (!csrfElement) {
+        alert('Erreur: token CSRF introuvable');
+        return;
+      }
+      
+      fetch(`/dashboard/student/toggle/${pk}/`, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfElement.value
+        },
+        body: formData
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Un problème est survenu lors de l\'enregistrement');
+        return res.json();
+      })
+      .then(data => {
+        if (data.success) {
+          // Update the balance elements on screen directly with formatted values
+          let rawTotalStr = data.raw_total.toLocaleString() + ' FCFA';
+          let adjTotalStr = data.adjustments_sum.toLocaleString() + ' FCFA';
+          let netTotalStr = data.net_total.toLocaleString() + ' FCFA';
+          
+          let rawEl = document.getElementById('raw-total-val');
+          let adjEl = document.getElementById('adjustments-sum-val');
+          let netEl = document.getElementById('net-total-val');
+          
+          rawEl.setAttribute('data-secret', rawTotalStr);
+          adjEl.setAttribute('data-secret', adjTotalStr);
+          netEl.setAttribute('data-secret', netTotalStr);
+          
+          if (!rawEl.textContent.includes('***')) {
+              rawEl.textContent = rawTotalStr;
+              adjEl.textContent = adjTotalStr;
+              netEl.textContent = netTotalStr;
+          }
+          
+          // Update the student's individual amount cell in-place
+          const amtCell = document.getElementById(`amt-${pk}`);
+          if (amtCell) {
+            if (data.student_amount > 0) {
+              amtCell.innerHTML = `<span class="amount-badge">${data.student_amount.toLocaleString()} FCFA</span>`;
+            } else {
+              amtCell.innerHTML = `<span class="amount-zero">0 FCFA</span>`;
+            }
+          }
+        } else {
+          throw new Error(data.error || 'Erreur inconnue');
+        }
+      })
+      .catch(err => {
+        console.error('Error saving checkbox:', err);
+        // Revert UI if error to prevent desync
+        input.checked = !input.checked;
+        alert('Erreur: impossible de sauvegarder la modification. ' + err.message);
+      });
+    }
+
+    // Toggle solde logic
+    const soldeToggle = document.getElementById('solde-toggle');
+    if (soldeToggle) {
+        soldeToggle.addEventListener('click', function() {
+            let secretValues = document.querySelectorAll('.secret-value');
+            if (!secretValues.length) return;
+            
+            let isHidden = secretValues[0].textContent.includes('***');
+            if (isHidden) {
+                let pass = prompt("Veuillez entrer le mot de passe pour afficher les soldes :");
+                if (pass === 'TCHOUA') {
+                    secretValues.forEach(el => {
+                        el.textContent = el.getAttribute('data-secret');
+                    });
+                } else if (pass !== null) {
+                    alert("Mot de passe incorrect.");
+                }
+            } else {
+                secretValues.forEach(el => {
+                    el.textContent = '*** FCFA';
+                });
+            }
+        });
+    }
+  </script>
+</body>
+</html>
