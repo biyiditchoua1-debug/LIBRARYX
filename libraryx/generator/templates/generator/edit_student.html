@@ -5,7 +5,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Modifier un Candidat – Soutenance IAI</title>
-  <meta name="description" content="Formulaire de modification d'un candidat." />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,11 +36,13 @@
       </div>
       <nav class="header-nav">
         <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
+        <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
+        <a href="{% url 'generator:logout' %}" class="nav-link" style="color: #f87171;">🚪 Déconnexion</a>
       </nav>
       <div class="header-badge">
         <span class="badge-dot"></span>
-        Modification Candidat
+        Édition Admin
       </div>
     </header>
 
@@ -50,37 +51,28 @@
       <section class="form-panel glass-card">
         <div class="panel-header" style="display: flex; align-items: center; justify-content: space-between;">
           <div>
-            <h2 class="panel-title">Modifier le Candidat</h2>
-            <p class="panel-desc">Mettez à jour la classe, la filière ou le thème du candidat.</p>
+            <h2 class="panel-title">Modifier l'Étudiant</h2>
+            <p class="panel-desc">Mettez à jour les informations du candidat.</p>
           </div>
           <a href="{% url 'generator:student_list' %}" class="btn btn-cancel" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none;">
             ← Annuler
           </a>
         </div>
 
-        {% if error_message %}
-          <div class="preview-error" style="margin: 20px 28px 0; padding: 12px 16px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; color: #f87171; font-size: 0.9rem;">
-            ⚠️ {{ error_message }}
-          </div>
-        {% endif %}
-
         <form method="POST" action="{% url 'generator:edit_student' student.pk %}">
           {% csrf_token %}
 
-          <!-- Nom complet (Read-only) -->
+          <!-- Nom complet -->
           <div class="form-group">
-            <label class="form-label">👤 Nom Complet du Candidat (Non modifiable)</label>
-            <div style="padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-weight: 600; color: #38bdf8;">
-              {{ student.full_name }}
-            </div>
+            <label class="form-label" for="full_name">👤 Nom Complet du Candidat *</label>
+            <input class="form-input" type="text" id="full_name" name="full_name" value="{{ student.full_name }}" required />
           </div>
 
-          <!-- Classe & Filière -->
+          <!-- Classe & Filière & Niveau -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="classe">🏫 Classe</label>
-              <input class="form-input" type="text" id="classe" name="classe"
-                     placeholder="ex: SR 3 - A" value="{{ student.classe }}" />
+              <input class="form-input" type="text" id="classe" name="classe" value="{{ student.classe }}" required />
             </div>
 
             <div class="form-group">
@@ -91,13 +83,54 @@
                 <option value="SE" {% if student.filiere == 'SE' %}selected{% endif %}>Software Engineering (SE)</option>
               </select>
             </div>
+
+            <div class="form-group">
+              <label class="form-label" for="niveau">🎓 Niveau</label>
+              <select class="form-input" id="niveau" name="niveau">
+                <option value="N3" {% if student.niveau == 'N3' %}selected{% endif %}>Niveau 3 (N3)</option>
+                <option value="N2" {% if student.niveau == 'N2' %}selected{% endif %}>Niveau 2 (N2)</option>
+              </select>
+            </div>
           </div>
 
           <!-- Thème -->
           <div class="form-group">
             <label class="form-label" for="theme">📋 Thème / Sujet du Projet</label>
-            <textarea class="form-input form-textarea" id="theme" name="theme" rows="3"
-              placeholder="ex: Conception d'un système de gestion réseau automatisé...">{{ student.theme }}</textarea>
+            <textarea class="form-input form-textarea" id="theme" name="theme" rows="3">{{ student.theme }}</textarea>
+          </div>
+
+          <!-- Encadreurs -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="academic_supervisor">🎓 Encadreur Académique</label>
+              <input class="form-input" type="text" id="academic_supervisor" name="academic_supervisor" value="{{ student.academic_supervisor }}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="professional_supervisor">💼 Encadreur Professionnel</label>
+              <input class="form-input" type="text" id="professional_supervisor" name="professional_supervisor" value="{{ student.professional_supervisor }}" />
+            </div>
+          </div>
+
+          <!-- Accessoires -->
+          <div class="form-group">
+            <label class="form-label">🎓 Accessoires &amp; Frais</label>
+            <div class="checkbox-row">
+              <label class="checkbox-container">
+                <input type="checkbox" id="toge" name="toge" value="1" {% if student.toge %}checked{% endif %} />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label">Toge (+5 000)</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="echarpe" name="echarpe" value="1" {% if student.echarpe %}checked{% endif %} />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label">Écharpe (+3 000)</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="frais_soutenance" name="frais_soutenance" value="1" {% if student.frais_soutenance %}checked{% endif %} />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label">Frais Soutenance</span>
+              </label>
+            </div>
           </div>
 
           <!-- Actions -->
