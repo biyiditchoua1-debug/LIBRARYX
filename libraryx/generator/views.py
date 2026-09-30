@@ -106,7 +106,11 @@ class AdminLoginView(View):
         password = request.POST.get('password', '').strip()
         next_url = request.POST.get('next') or reverse('generator:dashboard')
 
-        user = authenticate(request, username=username, password=password)
+        from django.contrib.auth.models import User
+        real_user = User.objects.filter(username__iexact=username).first()
+        lookup_username = real_user.username if real_user else username
+
+        user = authenticate(request, username=lookup_username, password=password)
         if user is not None:
             login(request, user)
             return redirect(next_url)
