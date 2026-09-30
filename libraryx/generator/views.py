@@ -149,7 +149,7 @@ class FlyerPreviewView(View):
             'academic_supervisor': request.POST.get('academic_supervisor', ''),
             'professional_supervisor': request.POST.get('professional_supervisor', ''),
             'filiere': request.POST.get('filiere', 'SR'),
-            'niveau': request.POST.get('niveau', 'N3'),
+            'niveau': request.POST.get('niveau', 'N2'),
             'template_choice': request.POST.get('template_choice', ''),
         }
         photo_file = request.FILES.get('photo', None)
@@ -173,7 +173,7 @@ class FlyerDownloadView(View):
             'academic_supervisor': request.POST.get('academic_supervisor', ''),
             'professional_supervisor': request.POST.get('professional_supervisor', ''),
             'filiere': request.POST.get('filiere', 'SR'),
-            'niveau': request.POST.get('niveau', 'N3'),
+            'niveau': request.POST.get('niveau', 'N2'),
             'template_choice': request.POST.get('template_choice', ''),
         }
         photo_file = request.FILES.get('photo', None)
