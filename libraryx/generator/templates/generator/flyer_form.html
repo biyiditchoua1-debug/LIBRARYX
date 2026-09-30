@@ -120,15 +120,23 @@
             </div>
           </div>
 
-          <!-- Filière -->
-          <div class="form-group">
-            <label class="form-label" for="filiere" >📚 Filière</label>
-            <select class="form-input" id="filiere" name="filiere">
-              <option value="SR">Système &amp; Réseaux (SR)</option>
-              <option value="GL">Génie Logiciel (GL)</option>
-              <option value="SE">Software Engineering (SE)</option>
-            </select>
-            <input type="hidden" id="niveau" name="niveau" value="N3" />
+          <!-- Filière & Niveau -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="filiere">📚 Filière</label>
+              <select class="form-input" id="filiere" name="filiere">
+                <option value="SR">Système &amp; Réseaux (SR)</option>
+                <option value="GL">Génie Logiciel (GL)</option>
+                <option value="SE">Software Engineering (SE)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="niveau">🎓 Niveau</label>
+              <select class="form-input" id="niveau" name="niveau">
+                <option value="N3" selected>Niveau 3 (N3)</option>
+                <option value="N2">Niveau 2 (N2)</option>
+              </select>
+            </div>
           </div>
 
           <!-- Accessoires -->
@@ -201,19 +209,31 @@
           <div class="template-chips-grid">
             <button type="button" class="template-chip active" data-template="auto">
               <span class="chip-code">✨ Auto</span>
-              <span class="chip-label">Basé sur filière</span>
+              <span class="chip-label">Filière &amp; Niveau</span>
             </button>
-            <button type="button" class="template-chip" data-template="SR">
-              <span class="chip-code">SR</span>
-              <span class="chip-label">Système &amp; Réseaux</span>
+            <button type="button" class="template-chip" data-template="SR-N3">
+              <span class="chip-code">SR N3</span>
+              <span class="chip-label">Réseaux L3</span>
             </button>
-            <button type="button" class="template-chip" data-template="GL">
-              <span class="chip-code">GL</span>
-              <span class="chip-label">Génie Logiciel</span>
+            <button type="button" class="template-chip" data-template="GL-N3">
+              <span class="chip-code">GL N3</span>
+              <span class="chip-label">Logiciel L3</span>
             </button>
-            <button type="button" class="template-chip" data-template="SE">
-              <span class="chip-code">SE</span>
-              <span class="chip-label">Software Eng.</span>
+            <button type="button" class="template-chip" data-template="SE-N3">
+              <span class="chip-code">SE N3</span>
+              <span class="chip-label">Software L3</span>
+            </button>
+            <button type="button" class="template-chip" data-template="SR-N2">
+              <span class="chip-code">SR N2</span>
+              <span class="chip-label">Réseaux L2</span>
+            </button>
+            <button type="button" class="template-chip" data-template="GL-N2">
+              <span class="chip-code">GL N2</span>
+              <span class="chip-label">Logiciel L2</span>
+            </button>
+            <button type="button" class="template-chip" data-template="SE-N2">
+              <span class="chip-code">SE N2</span>
+              <span class="chip-label">Software L2</span>
             </button>
           </div>
         </div>

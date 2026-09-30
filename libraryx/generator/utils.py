@@ -255,27 +255,31 @@ def generate_flyer_image(form_data: dict, photo_file=None, render_text=True) -> 
     If render_text=False, skips drawing text onto bitmap canvas (used for PDF vector rendering).
     """
     filiere = form_data.get('filiere', 'SR').upper()
+    niveau = form_data.get('niveau', 'N3').upper()
     template_choice = form_data.get('template_choice', '').strip().upper()
     
-    TEMPLATE_MAP = {
-        'GL': 'GL-N3.png',
-        'SE': 'SE - N3.png',
-        'SR': 'SR - N3.png',
-    }
-
     EXPLICIT_TEMPLATE_MAP = {
-        'GL': 'GL-N3.png',
-        'SE': 'SE - N3.png',
-        'SR': 'SR - N3.png',
+        'GL-N2': 'GL-N2.png',
         'GL-N3': 'GL-N3.png',
+        'SE-N2': 'SE - N2.png',
         'SE-N3': 'SE - N3.png',
+        'SR-N2': 'SR - N2.png',
         'SR-N3': 'SR - N3.png',
+        'GL': 'GL-N3.png' if niveau == 'N3' else 'GL-N2.png',
+        'SE': 'SE - N3.png' if niveau == 'N3' else 'SE - N2.png',
+        'SR': 'SR - N3.png' if niveau == 'N3' else 'SR - N2.png',
     }
     
     if template_choice in EXPLICIT_TEMPLATE_MAP:
         template_filename = EXPLICIT_TEMPLATE_MAP[template_choice]
     else:
-        template_filename = TEMPLATE_MAP.get(filiere, 'SR - N3.png')
+        suffix = 'N2.png' if niveau == 'N2' else 'N3.png'
+        if filiere == 'GL':
+            template_filename = f'GL-{suffix}'
+        elif filiere == 'SE':
+            template_filename = f'SE - {suffix}'
+        else:
+            template_filename = f'SR - {suffix}'
 
     template_path = ASSETS_DIR / 'templates' / template_filename
     img = Image.open(template_path).convert("RGBA")
