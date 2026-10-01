@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
 
   {% load static %}
-  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=9" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=10" />
 </head>
 <body>
 
@@ -202,7 +202,8 @@
               <h3 class="fin-value secret-value" id="adjustments-sum-val" data-secret="{{ adjustments_sum }} FCFA">*** FCFA</h3>
               <p class="fin-sub">Total des débits/crédits</p>
             </div>
-            <div class="fin-card net" id="solde-toggle" style="cursor: pointer;" title="Cliquez pour afficher/masquer le solde">
+            <div class="fin-card net balance-toggle" id="solde-toggle" role="button" tabindex="0"
+                 aria-label="Afficher les soldes" aria-pressed="false" title="Cliquez pour afficher les soldes">
               <span class="fin-label">📈 Solde (Total Recettes Nettes)</span>
               <h3 class="fin-value secret-value" id="net-total-val" data-secret="{{ net_total }} FCFA">*** FCFA</h3>
               
@@ -487,27 +488,30 @@
       });
     }
 
-    // Toggle solde logic
+    // The dashboard is already staff-only; do not rely on prompt(), which is
+    // unsupported in some browsers and previously prevented this control working.
     const soldeToggle = document.getElementById('solde-toggle');
     if (soldeToggle) {
-        soldeToggle.addEventListener('click', function() {
-            let secretValues = document.querySelectorAll('.secret-value');
+        const toggleBalances = function() {
+            const secretValues = document.querySelectorAll('.secret-value');
             if (!secretValues.length) return;
-            
-            let isHidden = secretValues[0].textContent.includes('***');
-            if (isHidden) {
-                let pass = prompt("Veuillez entrer le mot de passe pour afficher les soldes :");
-                if (pass === 'TCHOUA') {
-                    secretValues.forEach(el => {
-                        el.textContent = el.getAttribute('data-secret');
-                    });
-                } else if (pass !== null) {
-                    alert("Mot de passe incorrect.");
-                }
-            } else {
-                secretValues.forEach(el => {
-                    el.textContent = '*** FCFA';
-                });
+
+            const reveal = secretValues[0].textContent.includes('***');
+            secretValues.forEach(el => {
+                el.textContent = reveal ? (el.getAttribute('data-secret') || '*** FCFA') : '*** FCFA';
+            });
+
+            const label = reveal ? 'Masquer les soldes' : 'Afficher les soldes';
+            soldeToggle.setAttribute('aria-pressed', String(reveal));
+            soldeToggle.setAttribute('aria-label', label);
+            soldeToggle.title = reveal ? 'Cliquez pour masquer les soldes' : 'Cliquez pour afficher les soldes';
+        };
+
+        soldeToggle.addEventListener('click', toggleBalances);
+        soldeToggle.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleBalances();
             }
         });
     }

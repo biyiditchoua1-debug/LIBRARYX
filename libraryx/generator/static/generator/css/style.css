@@ -1071,6 +1071,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-color: var(--c-primary);
 }
 
+.balance-toggle:focus-visible {
+  outline: 3px solid rgba(79, 140, 255, 0.85);
+  outline-offset: 3px;
+}
+
 .fin-label {
   display: block;
   font-size: 0.72rem;
