@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
 
   {% load static %}
-  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=10" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=11" />
 </head>
 <body>
 
@@ -120,6 +120,7 @@
                class="btn btn-export">
               📥 Exporter (PDF)
             </a>
+            <span id="export-status" class="export-status" role="status" aria-live="polite" aria-atomic="true"></span>
           </div>
         </div>
 
@@ -400,6 +401,29 @@
     document.getElementById('echarpe-filter').addEventListener('change', applyFilters);
     document.getElementById('niveau-filter').addEventListener('change', applyFilters);
     document.getElementById('duplicates-filter').addEventListener('change', applyFilters);
+
+    const exportButton = document.getElementById('export-btn');
+    const exportStatus = document.getElementById('export-status');
+    if (exportButton && exportStatus) {
+      let exportResetTimer = null;
+      exportButton.addEventListener('click', function(event) {
+        if (exportButton.getAttribute('aria-disabled') === 'true') {
+          event.preventDefault();
+          return;
+        }
+
+        exportButton.setAttribute('aria-disabled', 'true');
+        exportButton.textContent = '⏳ Préparation du PDF…';
+        exportStatus.textContent = 'Le PDF est en préparation. Le téléchargement devrait démarrer dans quelques secondes.';
+
+        clearTimeout(exportResetTimer);
+        exportResetTimer = setTimeout(function() {
+          exportButton.removeAttribute('aria-disabled');
+          exportButton.textContent = '📥 Exporter (PDF)';
+          exportStatus.textContent = 'Si le fichier n’apparaît pas dans les téléchargements de votre navigateur, cliquez à nouveau sur Exporter (PDF).';
+        }, 30000);
+      });
+    }
 
 
     const searchInput = document.getElementById('student-search-input');

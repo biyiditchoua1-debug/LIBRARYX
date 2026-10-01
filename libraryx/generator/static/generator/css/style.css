@@ -1028,7 +1028,25 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 0.85rem;
 }
 
-.btn-export:hover:not(:disabled) {
+.btn-export[aria-disabled="true"] {
+  opacity: 0.72;
+  cursor: wait;
+  transform: none;
+}
+
+.export-status {
+  display: none;
+  flex: 1 0 100%;
+  color: var(--c-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.export-status:not(:empty) {
+  display: block;
+}
+
+.btn-export:hover:not(:disabled):not([aria-disabled="true"]) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(52, 211, 153, 0.4);
 }
@@ -1967,6 +1985,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 900px) {
@@ -2072,6 +2091,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     min-width: 0;
     justify-content: center;
     text-align: center;
+  }
+
+  .filter-actions-group .export-status {
+    grid-column: 1 / -1;
   }
 
   .table-responsive {
