@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=9" />
 </head>
 <body>
 
@@ -39,6 +39,7 @@
         <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
         <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link active">Étudiants</a>
+        <a href="{% url 'generator:payment_transactions' %}" class="nav-link">Transactions</a>
         <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
           {% csrf_token %}
           <button type="submit" class="nav-link" style="color: #f87171;">🚪 Déconnexion</button>
@@ -53,8 +54,8 @@
     <!-- Main Content -->
     <main class="main-layout" style="grid-template-columns: 1fr; max-width: 1100px; margin: 0 auto; gap: 24px;">
       
-      <section class="glass-card" style="padding: 24px 28px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+      <section class="glass-card student-list-panel">
+        <div class="student-list-heading">
           <div>
             <h2 class="panel-title" style="margin-bottom: 4px;">Gestion des Étudiants</h2>
             <p class="panel-desc">Consultez et mettez à jour la classe, la filière et le thème des candidats aux soutenances.</p>
@@ -62,11 +63,11 @@
         </div>
 
         <!-- Filters & Search -->
-        <form method="GET" action="{% url 'generator:student_list' %}" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
-          <div style="flex: 1; min-width: 240px;">
+        <form method="GET" action="{% url 'generator:student_list' %}" class="student-list-filters">
+          <div class="student-list-search">
             <input type="text" name="q" value="{{ search_query }}" class="form-input" placeholder="🔍 Rechercher par nom..." />
           </div>
-          <div style="width: 180px;">
+          <div class="student-list-filter">
             <select name="filiere" class="form-input" onchange="this.form.submit()">
               <option value="">Toutes les filières</option>
               <option value="SR" {% if current_filter == 'SR' %}selected{% endif %}>Système &amp; Réseaux (SR)</option>
@@ -75,15 +76,15 @@
             </select>
           </div>
           {% if search_query or current_filter %}
-            <a href="{% url 'generator:student_list' %}" class="btn btn-cancel" style="text-decoration: none; padding: 8px 14px; font-size: 0.85rem; align-self: center;">
+            <a href="{% url 'generator:student_list' %}" class="btn btn-cancel student-list-reset">
               Réinitialiser
             </a>
           {% endif %}
         </form>
 
         <!-- Students Table -->
-        <div style="overflow-x: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; color: #e2e8f0;">
+        <div class="student-list-table-wrap">
+          <table class="student-list-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; color: #e2e8f0;">
             <thead>
               <tr style="background: rgba(15, 23, 42, 0.7); border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;">
                 <th style="padding: 12px 16px;">#</th>
@@ -128,9 +129,9 @@
           </table>
         </div>
         {% if students.has_other_pages %}
-          <nav aria-label="Pagination des étudiants" style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 4px;">
+          <nav aria-label="Pagination des étudiants" class="student-pagination">
             <span>Page {{ students.number }} / {{ students.paginator.num_pages }} · {{ students.start_index }}–{{ students.end_index }} sur {{ students.paginator.count }}</span>
-            <div style="display:flex; gap:8px;">
+            <div class="student-pagination-actions">
               {% if students.has_previous %}
                 <a class="btn btn-primary" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ students.previous_page_number }}">Précédent</a>
               {% endif %}

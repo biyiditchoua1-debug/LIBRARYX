@@ -1,0 +1,134 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transactions de paiement – Soutenance IAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=10" />
+</head>
+<body>
+  <div class="bg-gradient"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="page-wrapper">
+    <header class="site-header">
+      <div class="header-logo">
+        <div class="logo-icon">🎓</div>
+        <div>
+          <h1 class="header-title">Flyer Soutenance</h1>
+          <span class="header-subtitle">IAI Cameroun</span>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
+        <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
+        <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
+        <a href="{% url 'generator:payment_transactions' %}" class="nav-link active" aria-current="page">Transactions</a>
+        <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
+          {% csrf_token %}
+          <button type="submit" class="nav-link" style="color: #f87171;">🚪 Déconnexion</button>
+        </form>
+      </nav>
+      <div class="header-badge"><span class="badge-dot"></span> Paiements</div>
+    </header>
+
+    <main class="main-layout transactions-layout">
+      <section class="glass-card transactions-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Transactions de paiement</h2>
+          <p class="panel-desc">Suivi des paiements de téléchargement de flyers (100 FCFA par commande).</p>
+        </div>
+
+        <div class="financial-summary-panel transaction-summary">
+          <div class="financial-cards">
+            <article class="fin-card transaction-success-card">
+              <span class="fin-label">Paiements réussis</span>
+              <strong class="fin-value">{{ successful_count }}</strong>
+            </article>
+            <article class="fin-card transaction-failed-card">
+              <span class="fin-label">Paiements échoués</span>
+              <strong class="fin-value">{{ failed_count }}</strong>
+            </article>
+            <article class="fin-card net">
+              <span class="fin-label">Montant total encaissé</span>
+              <strong class="fin-value">{{ total_amount }} FCFA</strong>
+              <span class="fin-sub">Calculé sur les paiements réussis uniquement</span>
+            </article>
+          </div>
+        </div>
+
+        <form method="get" action="{% url 'generator:payment_transactions' %}" class="transaction-filters">
+          <label class="filter-label" for="transaction-status">Filtrer par statut</label>
+          <select id="transaction-status" name="status" class="filter-select" onchange="this.form.submit()">
+            <option value="" {% if not status_filter %}selected{% endif %}>Toutes les transactions</option>
+            {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button type="submit" class="btn btn-primary">Filtrer</button></noscript>
+        </form>
+
+        <div class="transactions-table-wrap">
+          <table class="transactions-table">
+            <thead>
+              <tr>
+                <th>Commande</th>
+                <th>Transaction</th>
+                <th>Moyen de paiement</th>
+                <th>Statut</th>
+                <th>Montant</th>
+                <th>Créée le</th>
+                <th>Mise à jour</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in orders %}
+                <tr>
+                  <td class="transaction-id">{{ order.id }}</td>
+                  <td class="transaction-id">{% if order.transaction_id %}{{ order.transaction_id }}{% else %}<span class="transaction-muted">—</span>{% endif %}</td>
+                  <td>
+                    {% if order.payment_method == 'orange' %}Orange Money
+                    {% elif order.payment_method == 'mtn' %}MTN Mobile Money
+                    {% elif order.payment_method %}{{ order.payment_method|capfirst }}
+                    {% else %}<span class="transaction-muted">—</span>{% endif %}
+                  </td>
+                  <td><span class="transaction-status status-{{ order.status }}">{{ order.get_status_display }}</span></td>
+                  <td>{% if order.status == 'paid' %}{{ flyer_price }} FCFA{% else %}<span class="transaction-muted">—</span>{% endif %}</td>
+                  <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
+                  <td>{{ order.updated_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="7" class="transactions-empty">Aucune transaction pour ce filtre.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if orders.paginator.num_pages > 1 %}
+          <div class="student-pagination transactions-pagination">
+            <span>Page {{ orders.number }} sur {{ orders.paginator.num_pages }} · {{ orders.paginator.count }} transaction{{ orders.paginator.count|pluralize:"s" }}</span>
+            <div class="student-pagination-actions">
+              {% if orders.has_previous %}
+                <a class="btn btn-cancel" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ orders.previous_page_number }}">← Précédent</a>
+              {% endif %}
+              {% if orders.has_next %}
+                <a class="btn btn-cancel" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ orders.next_page_number }}">Suivant →</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+</body>
+</html>

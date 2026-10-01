@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
 
   {% load static %}
-  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=9" />
 </head>
 <body>
 
@@ -40,6 +40,7 @@
         <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
         <a href="{% url 'generator:dashboard' %}" class="nav-link active">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
+        <a href="{% url 'generator:payment_transactions' %}" class="nav-link">Transactions</a>
         <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
           {% csrf_token %}
           <button type="submit" class="nav-link" style="color: #f87171;">🚪 Déconnexion</button>
@@ -63,41 +64,54 @@
         <!-- Filter bar -->
         <div class="filter-bar">
           <div class="filter-group">
-            <div class="search-box-inline">
-              <span class="search-icon">🔍</span>
-              <input type="text" id="student-search-input" class="filter-select search-input"
-                     placeholder="Rechercher par nom..." value="{{ search_query }}" autocomplete="off" />
+            <div class="filter-control search-control">
+              <label class="filter-label sr-only" for="student-search-input">Recherche par nom</label>
+              <div class="search-box-inline">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="student-search-input" class="filter-select search-input"
+                       placeholder="Rechercher par nom..." value="{{ search_query }}" autocomplete="off" aria-label="Rechercher par nom" />
+              </div>
             </div>
-            <span class="filter-label">Filière :</span>
-            <select id="filiere-filter" class="filter-select">
-              <option value="" {% if not current_filter %}selected{% endif %}>Toutes</option>
-              <option value="GL" {% if current_filter == 'GL' %}selected{% endif %}>GL</option>
-              <option value="SR" {% if current_filter == 'SR' %}selected{% endif %}>SR</option>
-              <option value="SE" {% if current_filter == 'SE' %}selected{% endif %}>SE</option>
-            </select>
-            <span class="filter-label">Toge :</span>
-            <select id="toge-filter" class="filter-select">
-              <option value="" {% if not toge_filter %}selected{% endif %}>Tous</option>
-              <option value="1" {% if toge_filter == '1' %}selected{% endif %}>Avec Toge</option>
-            </select>
-            <span class="filter-label">Écharpe :</span>
-            <select id="echarpe-filter" class="filter-select">
-              <option value="" {% if not echarpe_filter %}selected{% endif %}>Tous</option>
-              <option value="1" {% if echarpe_filter == '1' %}selected{% endif %}>Avec Écharpe</option>
-            </select>
-            <span class="filter-label">Niveau :</span>
-            <select id="niveau-filter" class="filter-select">
-              <option value="" {% if not niveau_filter %}selected{% endif %}>Tous</option>
-              <option value="N2" {% if niveau_filter == 'N2' %}selected{% endif %}>Niveau 2</option>
-              <option value="N3" {% if niveau_filter == 'N3' %}selected{% endif %}>Niveau 3</option>
-            </select>
-            <span class="filter-label">Doublons :</span>
-            <select id="duplicates-filter" class="filter-select">
-              <option value="" {% if not duplicates_filter %}selected{% endif %}>Tous</option>
-              <option value="1" {% if duplicates_filter == '1' %}selected{% endif %}>⚠️ Doublons ({{ duplicate_count }})</option>
-            </select>
+            <div class="filter-control">
+              <label class="filter-label" for="filiere-filter">Filière</label>
+              <select id="filiere-filter" class="filter-select">
+                <option value="" {% if not current_filter %}selected{% endif %}>Toutes</option>
+                <option value="GL" {% if current_filter == 'GL' %}selected{% endif %}>GL</option>
+                <option value="SR" {% if current_filter == 'SR' %}selected{% endif %}>SR</option>
+                <option value="SE" {% if current_filter == 'SE' %}selected{% endif %}>SE</option>
+              </select>
+            </div>
+            <div class="filter-control">
+              <label class="filter-label" for="toge-filter">Toge</label>
+              <select id="toge-filter" class="filter-select">
+                <option value="" {% if not toge_filter %}selected{% endif %}>Tous</option>
+                <option value="1" {% if toge_filter == '1' %}selected{% endif %}>Avec Toge</option>
+              </select>
+            </div>
+            <div class="filter-control">
+              <label class="filter-label" for="echarpe-filter">Écharpe</label>
+              <select id="echarpe-filter" class="filter-select">
+                <option value="" {% if not echarpe_filter %}selected{% endif %}>Tous</option>
+                <option value="1" {% if echarpe_filter == '1' %}selected{% endif %}>Avec Écharpe</option>
+              </select>
+            </div>
+            <div class="filter-control">
+              <label class="filter-label" for="niveau-filter">Niveau</label>
+              <select id="niveau-filter" class="filter-select">
+                <option value="" {% if not niveau_filter %}selected{% endif %}>Tous</option>
+                <option value="N2" {% if niveau_filter == 'N2' %}selected{% endif %}>Niveau 2</option>
+                <option value="N3" {% if niveau_filter == 'N3' %}selected{% endif %}>Niveau 3</option>
+              </select>
+            </div>
+            <div class="filter-control">
+              <label class="filter-label" for="duplicates-filter">Doublons</label>
+              <select id="duplicates-filter" class="filter-select">
+                <option value="" {% if not duplicates_filter %}selected{% endif %}>Tous</option>
+                <option value="1" {% if duplicates_filter == '1' %}selected{% endif %}>⚠️ Doublons ({{ duplicate_count }})</option>
+              </select>
+            </div>
           </div>
-          <div class="filter-actions-group" style="display:flex; gap:10px; align-items:center;">
+          <div class="filter-actions-group">
             <a href="{% url 'generator:add_student' %}" class="btn btn-add-candidate">
               ➕ Ajouter un candidat
             </a>
@@ -322,9 +336,9 @@
               </tbody>
             </table>
             {% if students.has_other_pages %}
-              <nav aria-label="Pagination des candidats" style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 4px;">
+              <nav aria-label="Pagination des candidats" class="student-pagination">
                 <span>Page {{ students.number }} / {{ students.paginator.num_pages }} · {{ students.start_index }}–{{ students.end_index }} sur {{ students.paginator.count }}</span>
-                <div style="display:flex; gap:8px;">
+                <div class="student-pagination-actions">
                   {% if students.has_previous %}
                     <a class="btn btn-primary" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ students.previous_page_number }}">Précédent</a>
                   {% endif %}

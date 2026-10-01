@@ -763,6 +763,40 @@ class DashboardView(AdminRequiredMixin, View):
         })
 
 
+class PaymentTransactionsView(AdminRequiredMixin, View):
+    """Read-only payment history and revenue summary for staff."""
+
+    login_url = '/login/'
+
+    def get(self, request):
+        status_filter = request.GET.get('status', '').strip().lower()
+        valid_statuses = {value for value, _label in FlyerPaymentOrder.STATUS_CHOICES}
+
+        orders = FlyerPaymentOrder.objects.all().order_by('-created_at')
+        if status_filter in valid_statuses:
+            orders = orders.filter(status=status_filter)
+        else:
+            status_filter = ''
+
+        totals = FlyerPaymentOrder.objects.aggregate(
+            successful_count=Count('id', filter=Q(status=FlyerPaymentOrder.STATUS_PAID)),
+            failed_count=Count('id', filter=Q(status=FlyerPaymentOrder.STATUS_FAILED)),
+        )
+        pagination_query = request.GET.copy()
+        pagination_query.pop('page', None)
+
+        return render(request, 'generator/payment_transactions.html', {
+            'orders': Paginator(orders, 30).get_page(request.GET.get('page')),
+            'pagination_query': pagination_query.urlencode(),
+            'status_filter': status_filter,
+            'successful_count': totals['successful_count'],
+            'failed_count': totals['failed_count'],
+            'total_amount': totals['successful_count'] * FLYER_PRICE_XAF,
+            'flyer_price': FLYER_PRICE_XAF,
+            'status_choices': FlyerPaymentOrder.STATUS_CHOICES,
+        })
+
+
 class StudentListView(AdminRequiredMixin, View):
     """Admin Student List View."""
 

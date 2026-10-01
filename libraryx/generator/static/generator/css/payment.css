@@ -181,7 +181,16 @@
 @keyframes payment-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 480px) {
-  .payment-page { width: min(100% - 22px, 560px); padding-top: 24px; }
+  .payment-page { width: min(calc(100% - 22px), 560px); padding-top: 24px; }
   .payment-card { padding: 23px 19px; border-radius: 18px; }
   .provider-options { grid-template-columns: 1fr; }
+  .phone-input-wrap input,
+  .checkout-input { font-size: 16px; }
+}
+
+@media (max-width: 360px) {
+  .payment-page { width: calc(100% - 16px); padding-top: 16px; }
+  .payment-card { padding: 20px 15px; }
+  .payment-total { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .payment-total strong { font-size: 1.5rem; }
 }
