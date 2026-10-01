@@ -1,7 +1,9 @@
 import difflib
 import hashlib
 import io
+import json
 import logging
+import math
 import os
 import re
 import warnings
@@ -251,6 +253,30 @@ def _generation_payload(request):
         'niveau': request.POST.get('niveau', 'N2'),
         'template_choice': request.POST.get('template_choice', ''),
     }
+
+    try:
+        raw_photo_crop = request.POST.get('photo_crop', '')
+        if len(raw_photo_crop) > 256:
+            raise ValueError
+        photo_crop = json.loads(raw_photo_crop) if raw_photo_crop else {}
+        if not isinstance(photo_crop, dict):
+            raise ValueError
+        crop_values = {
+            'cx': photo_crop.get('cx', 0.5),
+            'cy': photo_crop.get('cy', 0.5),
+            'zoom': photo_crop.get('zoom', 1),
+        }
+        if any(
+            isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+            for value in crop_values.values()
+        ):
+            raise ValueError
+        if not (0 <= crop_values['cx'] <= 1 and 0 <= crop_values['cy'] <= 1 and 1 <= crop_values['zoom'] <= 3):
+            raise ValueError
+        form_data['photo_crop'] = crop_values
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None, None, JsonResponse({'error': 'Le cadrage de la photo est invalide. Réessayez.'}, status=400)
+
     for field, limit in GENERATION_FIELD_LIMITS.items():
         if len(form_data[field]) > limit:
             return None, None, JsonResponse(
@@ -370,7 +396,9 @@ class FlyerPreviewView(View):
             return error_response
 
         try:
-            image_bytes = generate_flyer_preview_bytes(form_data, photo_file)
+            image_bytes = generate_flyer_preview_bytes(
+                form_data, photo_file, photo_crop=form_data['photo_crop']
+            )
             response = HttpResponse(image_bytes, content_type='image/jpeg')
             response['Cache-Control'] = 'private, no-store, no-cache, max-age=0, must-revalidate'
             response['Pragma'] = 'no-cache'
@@ -445,7 +473,9 @@ class FlyerPaymentStartView(View):
 
         image = None
         try:
-            image = generate_flyer_image(form_data, photo_file)
+            image = generate_flyer_image(
+                form_data, photo_file, photo_crop=form_data['photo_crop']
+            )
             png_buffer = io.BytesIO()
             image.save(png_buffer, format='PNG')
             flyer_png = png_buffer.getvalue()

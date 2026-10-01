@@ -12,6 +12,17 @@ const photoInput      = document.getElementById('photo-input');
 const photoPreviewImg = document.getElementById('photo-preview-img');
 const photoPlaceholder= document.getElementById('photo-placeholder');
 const photoChangeBtn  = document.getElementById('photo-change-btn');
+const photoCropEditor = document.getElementById('photo-crop-editor');
+const photoCropCanvas = document.getElementById('photo-crop-canvas');
+const photoCropInput  = document.getElementById('photo-crop');
+const photoZoomInput  = document.getElementById('photo-zoom');
+const photoZoomValue  = document.getElementById('photo-zoom-value');
+const photoCropReset  = document.getElementById('photo-crop-reset');
+const photoCropContext = photoCropCanvas.getContext('2d');
+const photoCropSource = new Image();
+let photoCropSourceUrl = null;
+let photoCropState = { cx: 0.5, cy: 0.5, zoom: 1 };
+let activeCropPointer = null;
 
 // Preview pane states
 const previewContainer   = document.getElementById('preview-container');
@@ -61,26 +72,145 @@ photoChangeBtn.addEventListener('click', (e) => {
 });
 
 function setPhotoFile(file) {
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    photoPreviewImg.src = ev.target.result;
+  if (photoCropSourceUrl) URL.revokeObjectURL(photoCropSourceUrl);
+  photoCropSourceUrl = URL.createObjectURL(file);
+  photoCropSource.onload = () => {
+    photoCropState = { cx: 0.5, cy: 0.5, zoom: 1 };
+    photoZoomInput.value = '1';
+    drawPhotoCrop();
+    photoCropEditor.style.display = 'block';
     photoPreviewImg.style.display = 'block';
     photoPlaceholder.style.display = 'none';
     photoChangeBtn.style.display = 'block';
   };
-  reader.readAsDataURL(file);
+  photoCropSource.onerror = () => {
+    clearPhoto();
+    alert('Impossible de lire cette image. Choisissez une image JPG, PNG ou WebP.');
+  };
+  photoCropSource.src = photoCropSourceUrl;
+
   // Sync to a DataTransfer so we can send the actual file
   const dt = new DataTransfer();
   dt.items.add(file);
   photoInput.files = dt.files;
 }
 
+function getPhotoCropRect() {
+  const sourceWidth = photoCropSource.naturalWidth;
+  const sourceHeight = photoCropSource.naturalHeight;
+  const targetRatio = photoCropCanvas.width / photoCropCanvas.height;
+  const sourceRatio = sourceWidth / sourceHeight;
+  const zoom = Math.min(3, Math.max(1, Number(photoCropState.zoom) || 1));
+
+  let width = sourceRatio > targetRatio ? sourceHeight * targetRatio : sourceWidth;
+  let height = sourceRatio > targetRatio ? sourceHeight : sourceWidth / targetRatio;
+  width /= zoom;
+  height /= zoom;
+
+  const centerX = Math.min(sourceWidth - width / 2, Math.max(width / 2, photoCropState.cx * sourceWidth));
+  const centerY = Math.min(sourceHeight - height / 2, Math.max(height / 2, photoCropState.cy * sourceHeight));
+  return { x: centerX - width / 2, y: centerY - height / 2, width, height, centerX, centerY };
+}
+
+function drawPhotoCrop(updateThumbnail = true) {
+  if (!photoCropSource.naturalWidth || !photoCropCanvas) return;
+  const crop = getPhotoCropRect();
+  photoCropState.cx = crop.centerX / photoCropSource.naturalWidth;
+  photoCropState.cy = crop.centerY / photoCropSource.naturalHeight;
+
+  photoCropContext.clearRect(0, 0, photoCropCanvas.width, photoCropCanvas.height);
+  photoCropContext.drawImage(
+    photoCropSource,
+    crop.x, crop.y, crop.width, crop.height,
+    0, 0, photoCropCanvas.width, photoCropCanvas.height
+  );
+  photoCropInput.value = JSON.stringify({
+    cx: Number(photoCropState.cx.toFixed(6)),
+    cy: Number(photoCropState.cy.toFixed(6)),
+    zoom: Number(photoCropState.zoom.toFixed(2)),
+  });
+  photoZoomValue.textContent = `${Number(photoCropState.zoom).toFixed(1).replace('.', ',')}×`;
+
+  if (updateThumbnail) {
+    photoPreviewImg.src = photoCropCanvas.toDataURL('image/jpeg', 0.9);
+  }
+}
+
+photoZoomInput.addEventListener('input', () => {
+  photoCropState.zoom = Number(photoZoomInput.value);
+  drawPhotoCrop();
+  scheduleAutoPreview();
+});
+
+photoCropReset.addEventListener('click', () => {
+  photoCropState = { cx: 0.5, cy: 0.5, zoom: 1 };
+  photoZoomInput.value = '1';
+  drawPhotoCrop();
+  scheduleAutoPreview();
+});
+
+photoCropCanvas.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  activeCropPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  photoCropCanvas.setPointerCapture(event.pointerId);
+  photoCropCanvas.classList.add('is-dragging');
+});
+
+photoCropCanvas.addEventListener('pointermove', (event) => {
+  if (!activeCropPointer || activeCropPointer.id !== event.pointerId) return;
+  const rect = photoCropCanvas.getBoundingClientRect();
+  const crop = getPhotoCropRect();
+  const deltaX = event.clientX - activeCropPointer.x;
+  const deltaY = event.clientY - activeCropPointer.y;
+  photoCropState.cx -= (deltaX / rect.width) * crop.width / photoCropSource.naturalWidth;
+  photoCropState.cy -= (deltaY / rect.height) * crop.height / photoCropSource.naturalHeight;
+  activeCropPointer.x = event.clientX;
+  activeCropPointer.y = event.clientY;
+  drawPhotoCrop(false);
+});
+
+function finishPhotoCropDrag(event) {
+  if (!activeCropPointer || activeCropPointer.id !== event.pointerId) return;
+  activeCropPointer = null;
+  photoCropCanvas.classList.remove('is-dragging');
+  drawPhotoCrop();
+  scheduleAutoPreview();
+}
+
+photoCropCanvas.addEventListener('pointerup', finishPhotoCropDrag);
+photoCropCanvas.addEventListener('pointercancel', finishPhotoCropDrag);
+photoCropCanvas.addEventListener('keydown', (event) => {
+  const directions = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  if (!directions[event.key]) return;
+  event.preventDefault();
+  const [horizontal, vertical] = directions[event.key];
+  const crop = getPhotoCropRect();
+  const step = event.shiftKey ? 0.08 : 0.02;
+  photoCropState.cx += horizontal * crop.width / photoCropSource.naturalWidth * step;
+  photoCropState.cy += vertical * crop.height / photoCropSource.naturalHeight * step;
+  drawPhotoCrop();
+  scheduleAutoPreview();
+});
+
 function clearPhoto() {
+  if (photoCropSourceUrl) {
+    URL.revokeObjectURL(photoCropSourceUrl);
+    photoCropSourceUrl = null;
+  }
+  photoCropSource.onload = null;
+  photoCropSource.onerror = null;
+  photoCropSource.src = '';
+  photoCropEditor.style.display = 'none';
   photoPreviewImg.src = '';
   photoPreviewImg.style.display = 'none';
   photoPlaceholder.style.display = 'block';
   photoChangeBtn.style.display = 'none';
   photoInput.value = '';
+  photoCropState = { cx: 0.5, cy: 0.5, zoom: 1 };
+  photoCropInput.value = '{"cx":0.5,"cy":0.5,"zoom":1}';
+  photoZoomInput.value = '1';
+  photoZoomValue.textContent = '1,0×';
+  photoCropContext.clearRect(0, 0, photoCropCanvas.width, photoCropCanvas.height);
 }
 
 /* ── Show/hide preview states ──────────────────────────────────────── */
@@ -478,4 +608,3 @@ if (templateChips.length > 0) {
     if (select) select.addEventListener('change', () => resetTemplateSelection());
   });
 }
-

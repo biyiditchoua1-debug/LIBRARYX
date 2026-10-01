@@ -8,7 +8,7 @@ import io
 import datetime
 from pathlib import Path
 import re
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -236,32 +236,41 @@ def _rounded_mask(size: tuple, radius: int) -> Image.Image:
     return mask
 
 
-def _paste_photo(img: Image.Image, photo_source, bbox, corner_radius: int):
-    left, top, right, bottom = bbox
-    target_w = right - left
-    target_h = bottom - top
+def _paste_photo(img: Image.Image, photo_source, bbox, corner_radius: int, photo_crop=None):
+    photo_left, photo_top, right, bottom = bbox
+    target_w = right - photo_left
+    target_h = bottom - photo_top
 
     if photo_source is None:
         return
 
     if hasattr(photo_source, 'read'):
         photo_source.seek(0)
-    photo = Image.open(photo_source).convert("RGBA")
+    photo = ImageOps.exif_transpose(Image.open(photo_source)).convert("RGBA")
     src_w, src_h = photo.size
 
-    scale = max(target_w / src_w, target_h / src_h)
-    new_w = int(src_w * scale)
-    new_h = int(src_h * scale)
-    photo = photo.resize((new_w, new_h), Image.LANCZOS)
+    target_ratio = target_w / target_h
+    source_ratio = src_w / src_h
+    if source_ratio > target_ratio:
+        crop_w, crop_h = src_h * target_ratio, src_h
+    else:
+        crop_w, crop_h = src_w, src_w / target_ratio
 
-    cx = (new_w - target_w) // 2
-    cy = (new_h - target_h) // 2
-    photo = photo.crop((cx, cy, cx + target_w, cy + target_h))
+    photo_crop = photo_crop or {}
+    zoom = min(3, max(1, float(photo_crop.get('zoom', 1))))
+    crop_w /= zoom
+    crop_h /= zoom
+    center_x = min(src_w - crop_w / 2, max(crop_w / 2, float(photo_crop.get('cx', 0.5)) * src_w))
+    center_y = min(src_h - crop_h / 2, max(crop_h / 2, float(photo_crop.get('cy', 0.5)) * src_h))
+    crop_left = center_x - crop_w / 2
+    crop_top = center_y - crop_h / 2
+    photo = photo.crop((round(crop_left), round(crop_top), round(crop_left + crop_w), round(crop_top + crop_h)))
+    photo = photo.resize((target_w, target_h), Image.LANCZOS)
 
     mask = _rounded_mask((target_w, target_h), corner_radius)
     photo.putalpha(mask)
 
-    img.paste(photo, (left, top), photo)
+    img.paste(photo, (photo_left, photo_top), photo)
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -328,7 +337,7 @@ def split_time(value: str) -> tuple[str, str]:
     return f'{hour:02d}', f'H{minute:02d}'
 
 
-def generate_flyer_image(form_data: dict, photo_file=None, render_text=True) -> Image.Image:
+def generate_flyer_image(form_data: dict, photo_file=None, render_text=True, photo_crop=None) -> Image.Image:
     """
     Compose the flyer onto the PNG template using PSD-exact coordinates.
     Returns a 1080 × 1516 RGBA PIL Image.
@@ -362,7 +371,7 @@ def generate_flyer_image(form_data: dict, photo_file=None, render_text=True) -> 
 
     # 1. Photo — paste BEFORE text so frame decorations stay on top
     if photo_file:
-        _paste_photo(img, photo_file, PHOTO_BBOX, PHOTO_CORNER_R)
+        _paste_photo(img, photo_file, PHOTO_BBOX, PHOTO_CORNER_R, photo_crop=photo_crop)
 
     if not render_text:
         return img
@@ -426,9 +435,9 @@ def generate_flyer_image(form_data: dict, photo_file=None, render_text=True) -> 
     return img
 
 
-def generate_flyer_preview_bytes(form_data: dict, photo_file=None) -> bytes:
+def generate_flyer_preview_bytes(form_data: dict, photo_file=None, photo_crop=None) -> bytes:
     """Return a low-resolution, watermarked JPEG used only by the live preview."""
-    img = generate_flyer_image(form_data, photo_file, render_text=True)
+    img = generate_flyer_image(form_data, photo_file, render_text=True, photo_crop=photo_crop)
     pw = 540
     ph = int(img.height * pw / img.width)
     preview = img.resize((pw, ph), Image.LANCZOS).convert('RGBA')
@@ -463,14 +472,14 @@ def generate_flyer_preview_bytes(form_data: dict, photo_file=None) -> bytes:
     return buf.getvalue()
 
 
-def generate_flyer_pdf_bytes(form_data: dict, photo_file=None) -> bytes:
+def generate_flyer_pdf_bytes(form_data: dict, photo_file=None, photo_crop=None) -> bytes:
     """
     Return vector A4 PDF of flyer with native searchable text streams (Ctrl+F compatible).
     Uses ReportLab canvas overlaying registered Poppins text on top of flyer background.
     """
     _register_reportlab_fonts()
 
-    bg_img = generate_flyer_image(form_data, photo_file, render_text=False)
+    bg_img = generate_flyer_image(form_data, photo_file, render_text=False, photo_crop=photo_crop)
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)

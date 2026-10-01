@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
 
   {% load static %}
-  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=9" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=10" />
 </head>
 <body>
 
@@ -95,13 +95,30 @@
                 <div class="photo-placeholder" id="photo-placeholder">
                   <div class="photo-icon">👤</div>
                   <p>Glissez une photo ici ou<br /><strong>cliquez pour sélectionner</strong></p>
-                  <span class="photo-hint">JPG, PNG · Recadrage automatique</span>
+                  <span class="photo-hint">JPG, PNG · Recadrage réglable</span>
                 </div>
               </div>
               <input type="file" id="photo-input" name="photo" accept="image/*" class="photo-input-hidden" />
               <button type="button" class="photo-change-btn" id="photo-change-btn" style="display:none;">
                 ✕ Changer la photo
               </button>
+            </div>
+            <input type="hidden" id="photo-crop" name="photo_crop" value='{"cx":0.5,"cy":0.5,"zoom":1}' />
+            <div class="photo-crop-editor" id="photo-crop-editor" style="display:none;">
+              <div class="photo-crop-heading">
+                <strong>Recadrage de la photo</strong>
+                <span>Aperçu exact de la zone du flyer · 530 × 530 px</span>
+              </div>
+              <div class="photo-crop-frame">
+                <canvas id="photo-crop-canvas" width="530" height="530" tabindex="0"
+                        role="img" aria-label="Recadrage de la photo. Faites glisser pour choisir la partie visible."></canvas>
+              </div>
+              <div class="photo-crop-controls">
+                <label for="photo-zoom">Zoom <output id="photo-zoom-value" for="photo-zoom">1,0×</output></label>
+                <input type="range" id="photo-zoom" min="1" max="3" step="0.05" value="1" />
+                <button type="button" class="btn btn-primary btn-sm" id="photo-crop-reset">Centrer</button>
+              </div>
+              <p class="photo-crop-hint">Faites glisser la photo dans le cadre pour choisir la partie visible. Utilisez le curseur pour zoomer.</p>
             </div>
           </div>
 
@@ -277,6 +294,6 @@
     </main><!-- /.main-layout -->
   </div><!-- /.page-wrapper -->
 
-  <script src="{% static 'generator/js/app.js' %}?v=8"></script>
+  <script src="{% static 'generator/js/app.js' %}?v=9"></script>
 </body>
 </html>
