@@ -9,6 +9,7 @@ import datetime
 from pathlib import Path
 import re
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
+from pillow_heif import register_heif_opener
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -16,6 +17,10 @@ from reportlab.lib import colors
 from reportlab.pdfbase.pdfmetrics import registerFont, stringWidth
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.utils import ImageReader
+
+# iPhone photos are often HEIC/HEIF. Register Pillow's decoder without loading
+# embedded thumbnails, which are not used by flyer generation.
+register_heif_opener(thumbnails=False)
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / 'libraryx' / 'assets'
 FONTS_DIR  = ASSETS_DIR / 'fonts'

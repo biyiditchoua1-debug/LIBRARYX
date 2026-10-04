@@ -35,12 +35,14 @@ class FlyerPaymentOrder(models.Model):
     STATUS_PENDING = 'pending'
     STATUS_PAID = 'paid'
     STATUS_FAILED = 'failed'
+    STATUS_EXPIRED = 'expired'
     STATUS_CHOICES = [
         (STATUS_CREATED, 'Created'),
         (STATUS_INITIATING, 'Initiating'),
         (STATUS_PENDING, 'Pending'),
         (STATUS_PAID, 'Paid'),
         (STATUS_FAILED, 'Failed'),
+        (STATUS_EXPIRED, 'Expired'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

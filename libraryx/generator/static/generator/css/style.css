@@ -2745,10 +2745,24 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: #fbbf24;
 }
 
+.transaction-status.status-expired {
+  border-color: rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.08);
+  color: #cbd5e1;
+}
+
 .transactions-empty {
   padding: 36px 16px !important;
   color: var(--c-muted);
   text-align: center;
+}
+
+.transaction-reset-link {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--c-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .transactions-pagination {

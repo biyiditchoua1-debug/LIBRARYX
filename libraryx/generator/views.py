@@ -35,8 +35,8 @@ from .utils import (
 
 
 logger = logging.getLogger(__name__)
-MAX_PHOTO_SIZE = 8 * 1024 * 1024
-MAX_PHOTO_PIXELS = 20_000_000
+MAX_PHOTO_SIZE = 16 * 1024 * 1024
+MAX_PHOTO_PIXELS = 30_000_000
 FLYER_PRICE_XAF = 100
 FLYER_PAYMENT_LIFETIME = timedelta(hours=2)
 FLYER_PAYMENT_METHODS = {'orange': 'Orange Money', 'mtn': 'MTN Mobile Money'}
@@ -311,17 +311,20 @@ def _generation_payload(request):
     if photo_file:
         if photo_file.size > MAX_PHOTO_SIZE:
             return None, None, JsonResponse(
-                {'error': 'La photo doit peser 8 Mo maximum.'}, status=400
+                {'error': 'La photo doit peser 16 Mo maximum.'}, status=400
             )
         try:
             photo_file.seek(0)
             with warnings.catch_warnings():
                 warnings.simplefilter('error', Image.DecompressionBombWarning)
                 with Image.open(photo_file) as image:
-                    if image.format not in {'JPEG', 'PNG', 'WEBP'}:
+                    if image.format not in {'JPEG', 'PNG', 'WEBP', 'HEIF'}:
                         raise ValueError('Unsupported image format')
                     if image.width * image.height > MAX_PHOTO_PIXELS:
-                        raise ValueError('Image dimensions are too large')
+                        return None, None, JsonResponse(
+                            {'error': 'La photo dépasse la limite de 30 mégapixels.'},
+                            status=400,
+                        )
                     image.verify()
             photo_file.seek(0)
         except (
@@ -332,7 +335,8 @@ def _generation_payload(request):
             Image.DecompressionBombWarning,
         ):
             return None, None, JsonResponse(
-                {'error': 'Choisissez une photo JPEG, PNG ou WebP valide.'}, status=400
+                {'error': 'Choisissez une photo JPEG, PNG, WebP ou HEIC valide (16 Mo maximum).'},
+                status=400,
             )
 
     return form_data, photo_file, None
@@ -383,7 +387,7 @@ class FlyerFormView(View):
     """Renders the main flyer generator page."""
 
     def get(self, request):
-        FlyerPaymentOrder.objects.filter(expires_at__lte=timezone.now()).delete()
+        _expire_old_payment_orders()
         return render(request, 'generator/flyer_form.html')
 
 
@@ -422,13 +426,35 @@ class FlyerDownloadView(View):
         )
 
 
+def _expire_old_payment_orders(now=None):
+    """Discard expired flyer files while keeping payment history."""
+    now = now or timezone.now()
+    expired = FlyerPaymentOrder.objects.filter(expires_at__lte=now)
+    unfinished_statuses = [
+        FlyerPaymentOrder.STATUS_CREATED,
+        FlyerPaymentOrder.STATUS_INITIATING,
+        FlyerPaymentOrder.STATUS_PENDING,
+    ]
+    expired.filter(status__in=unfinished_statuses).update(
+        status=FlyerPaymentOrder.STATUS_EXPIRED,
+        flyer_png=b'',
+        session_key='',
+        updated_at=now,
+    )
+    expired.exclude(status__in=unfinished_statuses).update(
+        flyer_png=b'',
+        session_key='',
+        updated_at=now,
+    )
+
+
 def _owned_flyer_order(request, order_id):
     session_key = request.session.session_key
     if not session_key:
         return None
     order = FlyerPaymentOrder.objects.filter(pk=order_id, session_key=session_key).first()
     if order and order.expires_at <= timezone.now():
-        order.delete()
+        _expire_old_payment_orders()
         return None
     return order
 
@@ -492,8 +518,8 @@ class FlyerPaymentStartView(View):
         if not request.session.session_key:
             request.session.create()
         now = timezone.now()
-        # The generated PNG contains personal data; remove abandoned orders after their short lifetime.
-        FlyerPaymentOrder.objects.filter(expires_at__lte=now).delete()
+        # Purge expired flyer images but keep transaction records for the admin history.
+        _expire_old_payment_orders(now)
         order = FlyerPaymentOrder.objects.create(
             session_key=request.session.session_key,
             flyer_png=flyer_png,
@@ -799,6 +825,7 @@ class PaymentTransactionsView(AdminRequiredMixin, View):
     login_url = '/login/'
 
     def get(self, request):
+        _expire_old_payment_orders()
         status_filter = request.GET.get('status', '').strip().lower()
         valid_statuses = {value for value, _label in FlyerPaymentOrder.STATUS_CHOICES}
 
@@ -809,6 +836,7 @@ class PaymentTransactionsView(AdminRequiredMixin, View):
             status_filter = ''
 
         totals = FlyerPaymentOrder.objects.aggregate(
+            transaction_count=Count('id'),
             successful_count=Count('id', filter=Q(status=FlyerPaymentOrder.STATUS_PAID)),
             failed_count=Count('id', filter=Q(status=FlyerPaymentOrder.STATUS_FAILED)),
         )
@@ -819,6 +847,7 @@ class PaymentTransactionsView(AdminRequiredMixin, View):
             'orders': Paginator(orders, 30).get_page(request.GET.get('page')),
             'pagination_query': pagination_query.urlencode(),
             'status_filter': status_filter,
+            'transaction_count': totals['transaction_count'],
             'successful_count': totals['successful_count'],
             'failed_count': totals['failed_count'],
             'total_amount': totals['successful_count'] * FLYER_PRICE_XAF,
