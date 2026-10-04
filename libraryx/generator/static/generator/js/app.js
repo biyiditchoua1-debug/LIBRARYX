@@ -23,6 +23,10 @@ const photoCropSource = new Image();
 let photoCropSourceUrl = null;
 let photoCropState = { cx: 0.5, cy: 0.5, zoom: 1 };
 let activeCropPointer = null;
+let photoSelectionVersion = 0;
+let photoPreparation = Promise.resolve(true);
+let resolvePhotoPreparation = null;
+let photoPreparationError = null;
 
 // Preview pane states
 const previewContainer   = document.getElementById('preview-container');
@@ -72,27 +76,117 @@ photoChangeBtn.addEventListener('click', (e) => {
 });
 
 function setPhotoFile(file) {
+  const selectionVersion = ++photoSelectionVersion;
+  photoPreparationError = null;
+  if (resolvePhotoPreparation) {
+    resolvePhotoPreparation(false);
+    resolvePhotoPreparation = null;
+  }
   if (photoCropSourceUrl) URL.revokeObjectURL(photoCropSourceUrl);
   photoCropSourceUrl = URL.createObjectURL(file);
-  photoCropSource.onload = () => {
-    photoCropState = { cx: 0.5, cy: 0.5, zoom: 1 };
-    photoZoomInput.value = '1';
-    drawPhotoCrop();
-    photoCropEditor.style.display = 'block';
-    photoPreviewImg.style.display = 'block';
-    photoPlaceholder.style.display = 'none';
-    photoChangeBtn.style.display = 'block';
-  };
-  photoCropSource.onerror = () => {
-    clearPhoto();
-    alert('Impossible de lire cette image. Choisissez une image JPG, PNG ou WebP.');
-  };
-  photoCropSource.src = photoCropSourceUrl;
+  setPhotoInputFile(file);
+  photoPreparation = new Promise((resolve) => {
+    resolvePhotoPreparation = resolve;
+    const finishPreparation = (ready) => {
+      if (selectionVersion === photoSelectionVersion && resolvePhotoPreparation === resolve) {
+        resolvePhotoPreparation = null;
+      }
+      resolve(ready);
+    };
+    photoCropSource.onload = async () => {
+      try {
+        photoCropState = { cx: 0.5, cy: 0.5, zoom: 1 };
+        photoZoomInput.value = '1';
+        drawPhotoCrop();
+        photoCropEditor.style.display = 'block';
+        photoPreviewImg.style.display = 'block';
+        photoPlaceholder.style.display = 'none';
+        photoChangeBtn.style.display = 'block';
 
-  // Sync to a DataTransfer so we can send the actual file
+        // Normalize iPhone HEIC/HEIF and other browser-supported image formats
+        // to a modest-size JPEG before upload. The crop coordinates are relative
+        // to the full image, so keeping its aspect ratio preserves the framing.
+        const uploadFile = await normalizePhotoForUpload(file, photoCropSource);
+        if (selectionVersion !== photoSelectionVersion) {
+          finishPreparation(false);
+          return;
+        }
+        setPhotoInputFile(uploadFile);
+        finishPreparation(true);
+      } catch (error) {
+        if (selectionVersion === photoSelectionVersion) {
+          clearPhoto();
+          photoPreparationError = new Error(
+            'Impossible de préparer cette photo. Choisissez une autre image JPEG, PNG ou HEIC.'
+          );
+          alert(photoPreparationError.message);
+        }
+        finishPreparation(false);
+      }
+    };
+    photoCropSource.onerror = () => {
+      if (selectionVersion === photoSelectionVersion) {
+        clearPhoto();
+        photoPreparationError = new Error(
+          'Impossible de lire cette image. Choisissez une autre photo JPEG, PNG ou HEIC.'
+        );
+        alert(photoPreparationError.message);
+      }
+      finishPreparation(false);
+    };
+  });
+  photoCropSource.src = photoCropSourceUrl;
+}
+
+function setPhotoInputFile(file) {
   const dt = new DataTransfer();
   dt.items.add(file);
   photoInput.files = dt.files;
+}
+
+function normalizePhotoForUpload(file, image) {
+  const maxSide = 2400;
+  const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) return Promise.reject(new Error('Canvas indisponible'));
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      canvas.width = 0;
+      canvas.height = 0;
+      if (!blob || blob.type !== 'image/jpeg') {
+        reject(new Error('Conversion JPEG impossible'));
+        return;
+      }
+      resolve(new File([blob], 'candidate-photo.jpg', {
+        type: 'image/jpeg',
+        lastModified: file.lastModified || Date.now(),
+      }));
+    }, 'image/jpeg', 0.9);
+  });
+}
+
+async function waitForPhotoPreparation() {
+  while (true) {
+    if (photoPreparationError) throw photoPreparationError;
+    const version = photoSelectionVersion;
+    const preparation = photoPreparation;
+    const ready = await preparation;
+    if (photoPreparationError) throw photoPreparationError;
+    if (version !== photoSelectionVersion) continue;
+    if (!ready) {
+      throw new Error('La photo n’a pas pu être préparée. Sélectionnez-la de nouveau.');
+    }
+    return;
+  }
 }
 
 function getPhotoCropRect() {
@@ -193,6 +287,13 @@ photoCropCanvas.addEventListener('keydown', (event) => {
 });
 
 function clearPhoto() {
+  photoSelectionVersion += 1;
+  photoPreparationError = null;
+  if (resolvePhotoPreparation) {
+    resolvePhotoPreparation(false);
+    resolvePhotoPreparation = null;
+  }
+  photoPreparation = Promise.resolve(true);
   if (photoCropSourceUrl) {
     URL.revokeObjectURL(photoCropSourceUrl);
     photoCropSourceUrl = null;
@@ -317,6 +418,7 @@ previewBtn.addEventListener('click', async () => {
   showLoading();
   previewBtn.disabled = true;
   try {
+    await waitForPhotoPreparation();
     const fd = buildFormData();
     const resp = await fetch(PREVIEW_URL, {
       method: 'POST',
@@ -348,6 +450,7 @@ async function triggerDownload() {
   downloadBtn2.disabled = true;
 
   try {
+    await waitForPhotoPreparation();
     const fd = buildFormData();
     const resp = await fetch(PAYMENT_START_URL, {
       method: 'POST',
