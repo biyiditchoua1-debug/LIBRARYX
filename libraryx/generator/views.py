@@ -6,6 +6,7 @@ import logging
 import math
 import os
 import re
+import secrets
 import warnings
 from collections import defaultdict
 from datetime import timedelta
@@ -17,15 +18,17 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.core.validators import validate_email
+from django.db import OperationalError, transaction
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 
-from .models import FlyerPaymentOrder, FinancialAdjustment, StudentRegistration
+from .models import FlyerAccessCode, FlyerPaymentOrder, FinancialAdjustment, StudentRegistration
 from .utils import (
     generate_flyer_image,
     generate_flyer_preview_bytes,
@@ -40,6 +43,7 @@ MAX_PHOTO_PIXELS = 30_000_000
 FLYER_PRICE_XAF = 100
 FLYER_PAYMENT_LIFETIME = timedelta(hours=2)
 FLYER_PAYMENT_METHODS = {'orange': 'Orange Money', 'mtn': 'MTN Mobile Money'}
+FREE_FLYER_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 FIXED_TOTAL_DEDUCTION = 450_000
 GENERATION_FIELD_LIMITS = {
     'full_name': 255,
@@ -470,12 +474,83 @@ def _payment_page(request, order, status=200, **context):
         'generator/payment_checkout.html',
         {
             'order': order,
-            'amount': FLYER_PRICE_XAF,
+            'amount': 0 if order.payment_method == 'free_code' else FLYER_PRICE_XAF,
             'payment_methods': FLYER_PAYMENT_METHODS,
+            'can_redeem_free_code': (
+                order.status in {FlyerPaymentOrder.STATUS_CREATED, FlyerPaymentOrder.STATUS_FAILED}
+                and not order.transaction_id
+            ),
             **context,
         },
         status=status,
     )
+
+
+def _normalize_free_flyer_code(value):
+    normalized = re.sub(r'[\s-]+', '', (value or '')).upper()
+    if len(normalized) != 12 or any(char not in FREE_FLYER_CODE_ALPHABET for char in normalized):
+        return ''
+    return normalized
+
+
+def _free_flyer_code_digest(normalized_code):
+    # Keep plaintext vouchers out of the SQLite database and public repository.
+    return salted_hmac('generator.free-flyer-code', normalized_code).hexdigest()
+
+
+class FreeFlyerCodeRedemptionError(Exception):
+    pass
+
+
+def _redeem_free_flyer_code(order, submitted_code):
+    normalized_code = _normalize_free_flyer_code(submitted_code)
+    if not normalized_code:
+        raise FreeFlyerCodeRedemptionError('Le code saisi est invalide ou déjà utilisé.')
+    if (
+        order.status not in {FlyerPaymentOrder.STATUS_CREATED, FlyerPaymentOrder.STATUS_FAILED}
+        or order.transaction_id
+    ):
+        raise FreeFlyerCodeRedemptionError(
+            'Ce code doit être utilisé avant de démarrer un paiement. Revenez au générateur pour créer une nouvelle commande.'
+        )
+
+    now = timezone.now()
+    digest = _free_flyer_code_digest(normalized_code)
+    with transaction.atomic():
+        access_code = FlyerAccessCode.objects.filter(
+            code_digest=digest,
+            redeemed_at__isnull=True,
+            redeemed_order__isnull=True,
+        ).first()
+        if not access_code:
+            raise FreeFlyerCodeRedemptionError('Le code saisi est invalide ou déjà utilisé.')
+
+        updated_order = FlyerPaymentOrder.objects.filter(
+            pk=order.pk,
+            status__in=[FlyerPaymentOrder.STATUS_CREATED, FlyerPaymentOrder.STATUS_FAILED],
+            transaction_id='',
+        ).update(
+            status=FlyerPaymentOrder.STATUS_PAID,
+            payment_method='free_code',
+            updated_at=now,
+        )
+        if updated_order != 1:
+            raise FreeFlyerCodeRedemptionError(
+                'Cette commande a déjà démarré un paiement. Créez une nouvelle commande pour utiliser le code.'
+            )
+
+        claimed_code = FlyerAccessCode.objects.filter(
+            pk=access_code.pk,
+            redeemed_at__isnull=True,
+            redeemed_order__isnull=True,
+        ).update(redeemed_at=now, redeemed_order=order)
+        if claimed_code != 1:
+            raise FreeFlyerCodeRedemptionError('Le code saisi est invalide ou déjà utilisé.')
+
+
+def _generate_free_flyer_code():
+    characters = ''.join(secrets.choice(FREE_FLYER_CODE_ALPHABET) for _ in range(12))
+    return '-'.join((characters[:4], characters[4:8], characters[8:]))
 
 
 def _normalize_cameroon_mobile_number(value):
@@ -546,6 +621,20 @@ class FlyerPaymentCheckoutView(View):
         if not order:
             return render(request, 'generator/payment_expired.html', status=404)
         if order.status == FlyerPaymentOrder.STATUS_PAID:
+            return redirect('generator:payment_checkout', order_id=order.pk)
+
+        if request.POST.get('action') == 'redeem_free_code':
+            try:
+                _redeem_free_flyer_code(order, request.POST.get('access_code', ''))
+            except FreeFlyerCodeRedemptionError as exc:
+                return _payment_page(request, order, error_message=str(exc))
+            except OperationalError:
+                logger.warning('Concurrent free flyer code redemption for order %s', order.pk)
+                return _payment_page(
+                    request,
+                    order,
+                    error_message='Le code vient peut-être d’être utilisé. Rechargez la page et réessayez.',
+                )
             return redirect('generator:payment_checkout', order_id=order.pk)
 
         payment_method = request.POST.get('payment_method', '').strip()
@@ -819,6 +908,59 @@ class DashboardView(AdminRequiredMixin, View):
         })
 
 
+class FlyerAccessCodeAdminView(AdminRequiredMixin, View):
+    """Generate one-use free flyer codes for administrators to share."""
+
+    login_url = '/login/'
+
+    def _render_page(self, request, *, generated_codes=None, error_message='', status=200):
+        response = render(request, 'generator/flyer_access_codes.html', {
+            'generated_codes': generated_codes or [],
+            'error_message': error_message,
+            'access_codes': FlyerAccessCode.objects.select_related(
+                'created_by', 'redeemed_order'
+            ).order_by('-created_at')[:100],
+        }, status=status)
+        response['Cache-Control'] = 'private, no-store'
+        return response
+
+    def get(self, request):
+        return self._render_page(request)
+
+    def post(self, request):
+        try:
+            count = int(request.POST.get('count', '1'))
+        except (TypeError, ValueError):
+            return self._render_page(
+                request,
+                error_message='Entrez un nombre valide entre 1 et 100.',
+                status=400,
+            )
+        if not 1 <= count <= 100:
+            return self._render_page(
+                request,
+                error_message='Vous pouvez générer de 1 à 100 codes à la fois.',
+                status=400,
+            )
+
+        generated_codes = []
+        with transaction.atomic():
+            for _ in range(count):
+                code = _generate_free_flyer_code()
+                digest = _free_flyer_code_digest(code.replace('-', ''))
+                while FlyerAccessCode.objects.filter(code_digest=digest).exists():
+                    code = _generate_free_flyer_code()
+                    digest = _free_flyer_code_digest(code.replace('-', ''))
+                FlyerAccessCode.objects.create(
+                    code_digest=digest,
+                    code_hint=code[-4:],
+                    created_by=request.user,
+                )
+                generated_codes.append(code)
+
+        return self._render_page(request, generated_codes=generated_codes)
+
+
 class PaymentTransactionsView(AdminRequiredMixin, View):
     """Read-only payment history and revenue summary for staff."""
 
@@ -837,7 +979,14 @@ class PaymentTransactionsView(AdminRequiredMixin, View):
 
         totals = FlyerPaymentOrder.objects.aggregate(
             transaction_count=Count('id'),
-            successful_count=Count('id', filter=Q(status=FlyerPaymentOrder.STATUS_PAID)),
+            successful_count=Count(
+                'id',
+                filter=Q(status=FlyerPaymentOrder.STATUS_PAID) & ~Q(payment_method='free_code'),
+            ),
+            free_code_count=Count(
+                'id',
+                filter=Q(status=FlyerPaymentOrder.STATUS_PAID, payment_method='free_code'),
+            ),
             failed_count=Count('id', filter=Q(status=FlyerPaymentOrder.STATUS_FAILED)),
         )
         pagination_query = request.GET.copy()
@@ -849,6 +998,7 @@ class PaymentTransactionsView(AdminRequiredMixin, View):
             'status_filter': status_filter,
             'transaction_count': totals['transaction_count'],
             'successful_count': totals['successful_count'],
+            'free_code_count': totals['free_code_count'],
             'failed_count': totals['failed_count'],
             'total_amount': totals['successful_count'] * FLYER_PRICE_XAF,
             'flyer_price': FLYER_PRICE_XAF,

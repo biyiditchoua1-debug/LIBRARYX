@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=9" />
-  <link rel="stylesheet" href="{% static 'generator/css/payment.css' %}?v=2" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=12" />
+  <link rel="stylesheet" href="{% static 'generator/css/payment.css' %}?v=3" />
 </head>
 <body>
   <div class="bg-gradient"></div>
@@ -20,7 +20,13 @@
       <div class="payment-mark" aria-hidden="true">🎓</div>
       <p class="payment-eyebrow">Générateur de Flyer · IAI Cameroun</p>
       <h1 id="payment-title">Télécharger votre flyer</h1>
-      <p class="payment-description">Votre flyer est prêt. Réglez les frais de téléchargement pour le recevoir en PNG haute qualité.</p>
+      <p class="payment-description">
+        {% if order.status == 'paid' and order.payment_method == 'free_code' %}
+          Votre code gratuit a validé ce flyer. Téléchargez-le en PNG haute qualité.
+        {% else %}
+          Votre flyer est prêt. Réglez les frais de téléchargement pour le recevoir en PNG haute qualité.
+        {% endif %}
+      </p>
 
       <div class="payment-total" aria-label="Montant total : {{ amount }} FCFA">
         <span>Montant à payer</span>
@@ -32,11 +38,28 @@
       {% if order.status == 'paid' %}
         <div class="payment-success" id="paid-panel">
           <span class="payment-state-icon" aria-hidden="true">✓</span>
-          <h2>Paiement confirmé</h2>
+          {% if order.payment_method == 'free_code' %}<h2>Code gratuit accepté</h2>{% else %}<h2>Paiement confirmé</h2>{% endif %}
           <p>Votre flyer est prêt à être téléchargé.</p>
           <a class="payment-submit" href="{% url 'generator:payment_download' order.pk %}">Télécharger mon flyer PNG</a>
         </div>
       {% else %}
+        {% if can_redeem_free_code %}
+          <section class="free-code-panel" aria-labelledby="free-code-heading">
+            <h2 id="free-code-heading">Vous avez un code gratuit ?</h2>
+            <p>Entrez le code partagé par l’administrateur pour télécharger ce flyer sans paiement. Chaque code ne fonctionne qu’une fois.</p>
+            <form method="post" action="{% url 'generator:payment_checkout' order.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="redeem_free_code" />
+              <label class="checkout-label" for="access-code">Code d’accès</label>
+              <input class="checkout-input access-code-input" id="access-code" name="access_code" type="text"
+                     maxlength="20" autocomplete="one-time-code" autocapitalize="characters"
+                     placeholder="ABCD-EFGH-JKLM" required />
+              <button class="payment-submit free-code-submit" type="submit">Utiliser le code gratuit</button>
+            </form>
+          </section>
+          <div class="free-code-divider"><span>ou payer 100 FCFA</span></div>
+        {% endif %}
+
         <div id="payment-waiting" class="payment-waiting" {% if order.status != 'initiating' and order.status != 'pending' %}hidden{% endif %}>
           <span class="payment-spinner" aria-hidden="true"></span>
           <h2>Demande de paiement envoyée</h2>
@@ -77,7 +100,7 @@
         </form>
       {% endif %}
     </section>
-    <p class="payment-security">Paiement traité de façon sécurisée par DigiPay.</p>
+  {% if order.payment_method != 'free_code' %}<p class="payment-security">Paiement traité de façon sécurisée par DigiPay.</p>{% endif %}
   </main>
   {% if order.status == 'initiating' or order.status == 'pending' %}
     <script src="{% static 'generator/js/payment.js' %}?v=1" data-status-url="{% url 'generator:payment_status' order.pk %}"></script>

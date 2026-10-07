@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Codes gratuits – Soutenance IAI</title>
+  {% load static %}
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'generator/css/style.css' %}?v=12" />
+</head>
+<body>
+  <div class="bg-gradient"></div>
+  <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+  <div class="page-wrapper">
+    <header class="site-header">
+      <div class="header-logo">
+        <div class="logo-icon">🎓</div>
+        <div><h1 class="header-title">Flyer Soutenance</h1><span class="header-subtitle">IAI Cameroun</span></div>
+      </div>
+      <nav class="header-nav">
+        <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
+        <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
+        <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
+        <a href="{% url 'generator:payment_transactions' %}" class="nav-link">Transactions</a>
+        <a href="{% url 'generator:free_flyer_codes' %}" class="nav-link active" aria-current="page">Codes gratuits</a>
+        <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
+          {% csrf_token %}<button type="submit" class="nav-link" style="color:#f87171;">🚪 Déconnexion</button>
+        </form>
+      </nav>
+      <div class="header-badge"><span class="badge-dot"></span> Accès gratuit</div>
+    </header>
+
+    <main class="main-layout">
+      <section class="dashboard-panel glass-card free-codes-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Codes gratuits à usage unique</h2>
+          <p class="panel-desc">Créez des codes à partager. Chaque code valide le téléchargement d’un seul flyer sans paiement.</p>
+        </div>
+
+        {% if error_message %}<div class="free-code-error" role="alert">{{ error_message }}</div>{% endif %}
+
+        <section class="free-code-admin-card">
+          <h3>Générer des codes</h3>
+          <p>Les codes apparaissent ci-dessous une seule fois. Copiez-les et partagez-les tout de suite ; ils ne peuvent pas être récupérés ensuite.</p>
+          <form method="post" action="{% url 'generator:free_flyer_codes' %}" class="free-code-generator-form">
+            {% csrf_token %}
+            <label for="free-code-count">Nombre de codes (1 à 100)</label>
+            <input id="free-code-count" name="count" type="number" min="1" max="100" value="1" required />
+            <button class="btn btn-primary" type="submit">Générer les codes</button>
+          </form>
+        </section>
+
+        {% if generated_codes %}
+          <section class="free-code-issued" aria-labelledby="issued-codes-title">
+            <div>
+              <h3 id="issued-codes-title">Codes créés — copiez-les maintenant</h3>
+              <p>Chaque ligne est un code différent et ne donnera accès qu’à un seul téléchargement.</p>
+            </div>
+            <textarea id="generated-free-codes" readonly rows="8" aria-label="Codes gratuits nouvellement générés">{% for code in generated_codes %}{{ code }}{% if not forloop.last %}&#10;{% endif %}{% endfor %}</textarea>
+            <button id="copy-free-codes" class="btn btn-primary" type="button">Copier tous les codes</button>
+          </section>
+        {% endif %}
+
+        <section class="free-code-history">
+          <div class="panel-header">
+            <h3 class="panel-title">Historique des codes</h3>
+            <p class="panel-desc">Les codes existants sont masqués. Seuls les nouveaux codes sont affichés après leur création.</p>
+          </div>
+          <div class="transactions-table-wrap">
+            <table class="transactions-table">
+              <thead><tr><th>Code</th><th>État</th><th>Créé par</th><th>Créé le</th><th>Utilisé le</th><th>Commande</th></tr></thead>
+              <tbody>
+                {% for access_code in access_codes %}
+                  <tr>
+                    <td class="transaction-id">••••-••••-{{ access_code.code_hint }}</td>
+                    <td>{% if access_code.redeemed_at %}<span class="free-code-status is-used">Utilisé</span>{% else %}<span class="free-code-status is-ready">Disponible</span>{% endif %}</td>
+                    <td>{% if access_code.created_by %}{{ access_code.created_by.username }}{% else %}—{% endif %}</td>
+                    <td>{{ access_code.created_at|date:"d/m/Y H:i" }}</td>
+                    <td>{% if access_code.redeemed_at %}{{ access_code.redeemed_at|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+                    <td class="transaction-id">{% if access_code.redeemed_order_id %}{{ access_code.redeemed_order_id }}{% else %}—{% endif %}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="6" class="transactions-empty">Aucun code généré pour le moment.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  {% if generated_codes %}
+    <script>
+      const codeCopyButton = document.getElementById('copy-free-codes');
+      const generatedCodes = document.getElementById('generated-free-codes');
+      codeCopyButton.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(generatedCodes.value);
+          codeCopyButton.textContent = 'Codes copiés';
+        } catch (error) {
+          generatedCodes.focus();
+          generatedCodes.select();
+          document.execCommand('copy');
+          codeCopyButton.textContent = 'Codes copiés';
+        }
+      });
+    </script>
+  {% endif %}
+</body>
+</html>

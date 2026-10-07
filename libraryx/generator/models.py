@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 class StudentRegistration(models.Model):
@@ -57,3 +58,29 @@ class FlyerPaymentOrder(models.Model):
 
     def __str__(self):
         return f"Flyer payment {self.id} ({self.status})"
+
+
+class FlyerAccessCode(models.Model):
+    """One-use complimentary flyer code; the plaintext is shown only at creation."""
+
+    code_digest = models.CharField(max_length=64, unique=True)
+    code_hint = models.CharField(max_length=4)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='generated_flyer_access_codes',
+    )
+    redeemed_at = models.DateTimeField(null=True, blank=True)
+    redeemed_order = models.OneToOneField(
+        FlyerPaymentOrder,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='redeemed_access_code',
+    )
+
+    def __str__(self):
+        return f"Free flyer code ending {self.code_hint}"

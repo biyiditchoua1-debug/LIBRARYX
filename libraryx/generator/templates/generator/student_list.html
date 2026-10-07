@@ -40,6 +40,7 @@
         <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link active">Étudiants</a>
         <a href="{% url 'generator:payment_transactions' %}" class="nav-link">Transactions</a>
+        <a href="{% url 'generator:free_flyer_codes' %}" class="nav-link">Codes gratuits</a>
         <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
           {% csrf_token %}
           <button type="submit" class="nav-link" style="color: #f87171;">🚪 Déconnexion</button>

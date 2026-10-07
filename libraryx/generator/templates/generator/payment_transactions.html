@@ -31,6 +31,7 @@
         <a href="{% url 'generator:home' %}" class="nav-link">Générateur</a>
         <a href="{% url 'generator:dashboard' %}" class="nav-link">Tableau de Bord</a>
         <a href="{% url 'generator:student_list' %}" class="nav-link">Étudiants</a>
+        <a href="{% url 'generator:free_flyer_codes' %}" class="nav-link">Codes gratuits</a>
         <a href="{% url 'generator:payment_transactions' %}" class="nav-link active" aria-current="page">Transactions</a>
         <form method="post" action="{% url 'generator:logout' %}" class="nav-link-form">
           {% csrf_token %}
@@ -60,6 +61,10 @@
             <article class="fin-card transaction-failed-card">
               <span class="fin-label">Paiements échoués</span>
               <strong class="fin-value">{{ failed_count }}</strong>
+            </article>
+            <article class="fin-card transaction-success-card">
+              <span class="fin-label">Codes gratuits utilisés</span>
+              <strong class="fin-value">{{ free_code_count }}</strong>
             </article>
             <article class="fin-card net">
               <span class="fin-label">Montant total encaissé</span>
@@ -101,11 +106,12 @@
                   <td>
                     {% if order.payment_method == 'orange' %}Orange Money
                     {% elif order.payment_method == 'mtn' %}MTN Mobile Money
+                    {% elif order.payment_method == 'free_code' %}Code gratuit
                     {% elif order.payment_method %}{{ order.payment_method|capfirst }}
                     {% else %}<span class="transaction-muted">—</span>{% endif %}
                   </td>
                   <td><span class="transaction-status status-{{ order.status }}">{{ order.get_status_display }}</span></td>
-                  <td>{% if order.status == 'paid' %}{{ flyer_price }} FCFA{% else %}<span class="transaction-muted">—</span>{% endif %}</td>
+                  <td>{% if order.status == 'paid' and order.payment_method == 'free_code' %}0 FCFA{% elif order.status == 'paid' %}{{ flyer_price }} FCFA{% else %}<span class="transaction-muted">—</span>{% endif %}</td>
                   <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
                   <td>{{ order.updated_at|date:"d/m/Y H:i" }}</td>
                 </tr>

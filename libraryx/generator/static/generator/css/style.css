@@ -2796,3 +2796,70 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     margin: 0 16px;
   }
 }
+
+.free-codes-panel { padding-bottom: 28px; }
+.free-code-error {
+  margin: 0 28px 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.25);
+  color: #fecaca;
+  line-height: 1.5;
+}
+.free-code-admin-card,
+.free-code-issued {
+  margin: 0 28px 22px;
+  padding: 22px;
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.free-code-admin-card h3,
+.free-code-issued h3 { margin: 0; color: #fff; font-size: 1.05rem; }
+.free-code-admin-card > p,
+.free-code-issued p { margin: 7px 0 16px; color: var(--c-muted); line-height: 1.5; }
+.free-code-generator-form { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.free-code-generator-form label { flex: 1 1 100%; color: var(--c-text); font-size: 0.86rem; font-weight: 700; }
+.free-code-generator-form input {
+  width: 130px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-input-bg);
+  color: #fff;
+  font: inherit;
+}
+.free-code-issued { border-color: rgba(52, 211, 153, 0.35); background: rgba(16, 185, 129, 0.07); }
+.free-code-issued textarea {
+  display: block;
+  width: 100%;
+  min-height: 145px;
+  margin: 12px 0;
+  padding: 14px;
+  resize: vertical;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.58);
+  color: #d1fae5;
+  font: 700 0.98rem/1.8 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.free-code-history { margin-top: 30px; }
+.free-code-status {
+  display: inline-flex;
+  padding: 4px 9px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+.free-code-status.is-ready { border-color: rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.1); color: #93c5fd; }
+.free-code-status.is-used { border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.1); color: #6ee7b7; }
+
+@media (max-width: 720px) {
+  .free-code-admin-card,
+  .free-code-issued { margin-right: 16px; margin-left: 16px; padding: 16px; }
+  .free-code-error { margin-right: 16px; margin-left: 16px; }
+  .free-code-generator-form input { flex: 1 1 100%; width: 100%; }
+}

@@ -19,6 +19,7 @@ urlpatterns = [
 
     # Admin Protected Area
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+    path('dashboard/free-codes/', views.FlyerAccessCodeAdminView.as_view(), name='free_flyer_codes'),
     path('dashboard/transactions/', views.PaymentTransactionsView.as_view(), name='payment_transactions'),
     path('dashboard/export/', views.DashboardDownloadPdfView.as_view(), name='dashboard_download'),
     path('dashboard/adjustments/add/', views.AddAdjustmentView.as_view(), name='add_adjustment'),

@@ -90,6 +90,20 @@
   line-height: 1.5;
 }
 
+.free-code-panel {
+  margin: 18px 0 14px;
+  padding: 18px;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.07);
+}
+.free-code-panel h2 { margin: 0; font-size: 1.12rem; }
+.free-code-panel > p { margin-top: 7px; color: var(--c-muted); font-size: 0.83rem; line-height: 1.5; }
+.access-code-input { margin-top: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.free-code-submit { margin-top: 13px; background: linear-gradient(135deg, #059669, #0f766e); box-shadow: 0 8px 22px rgba(16, 185, 129, 0.17); }
+.free-code-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0 10px; color: var(--c-muted); font-size: 0.75rem; text-align: center; }
+.free-code-divider::before, .free-code-divider::after { content: ''; flex: 1; height: 1px; background: var(--c-border); }
+
 .provider-fieldset { border: 0; margin: 0 0 20px; }
 .provider-fieldset legend { margin-bottom: 11px; color: var(--c-text); font-size: 0.92rem; font-weight: 700; }
 .provider-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
